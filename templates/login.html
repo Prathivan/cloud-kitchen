@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Login | Butterfly Cloud Kitchen{% endblock %}
+{% block content %}
+
+<section class="auth-section">
+    <div class="container">
+        <div class="auth-wrap">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <a href="{% url 'home' %}" class="logo">
+                        <img src="{% static 'images/icons/logo.svg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
+                    </a>
+                    <h1>Welcome Back</h1>
+                    <p>Login to track orders and reorder your favourites.</p>
+                </div>
+
+                <div class="auth-tabs">
+                    <a href="{% url 'login' %}" class="active">Login</a>
+                    <a href="{% url 'signup' %}">Sign Up</a>
+                </div>
+
+                <form action="{% url 'login' %}" method="post" class="auth-form">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="login-username">Email</label>
+                        <input type="text" id="login-username" name="username" placeholder="you@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <div class="password-field">
+                            <input type="password" id="login-password" name="password" placeholder="Enter your password" required>
+                            <button type="button" class="password-toggle" data-target="login-password" aria-label="Show password">Show</button>
+                        </div>
+                    </div>
+                    <div class="form-meta">
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="remember" name="remember">
+                            <label for="remember" style="margin:0; font-weight:400;">Remember me</label>
+                        </label>
+                        <a href="#">Forgot password?</a>
+                    </div>
+                    <button type="submit" class="form-submit">Login</button>
+                </form>
+
+                <div class="divider">or continue with</div>
+                <div class="social-login">
+                    <a href="#" class="social-btn">🔵 Google</a>
+                    <a href="#" class="social-btn">📘 Facebook</a>
+                </div>
+
+                <p class="auth-switch">Don't have an account? <a href="{% url 'signup' %}">Sign up</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

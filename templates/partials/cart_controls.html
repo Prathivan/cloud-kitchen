@@ -1,0 +1,74 @@
+{% load static %}
+<div
+    class="food-cart-controls"
+    data-menu-item-id="{{ item.id }}"
+    data-add-url="{% url 'add_to_cart' item.id %}"
+    data-update-url-template="{% url 'update_cart_quantity' 999999999 %}">
+
+{% if item.orderable %}
+
+    {% if item.cart_item %}
+
+        <!-- ITEM ALREADY IN CART -->
+
+        <form
+            action="{% url 'update_cart_quantity' item.cart_item.id %}"
+            method="POST"
+            class="menu-qty-form cart-qty-form">
+
+            {% csrf_token %}
+
+            <input type="hidden" name="origin" value="menu">
+
+            <button
+                type="submit"
+                name="quantity"
+                value="{{ item.cart_item.quantity|add:'-1' }}"
+                class="qty-btn">
+                −
+            </button>
+
+            <span class="menu-qty">
+                {{ item.cart_item.quantity }}
+            </span>
+
+            <button
+                type="submit"
+                name="quantity"
+                value="{{ item.cart_item.quantity|add:'1' }}"
+                class="qty-btn">
+                +
+            </button>
+
+        </form>
+
+    {% else %}
+
+        <!-- ITEM NOT IN CART -->
+
+        <form
+            action="{% url 'add_to_cart' item.id %}"
+            method="POST"
+            class="cart-add-form">
+
+            {% csrf_token %}
+
+            <button class="add-btn" type="submit">
+                + Add
+            </button>
+
+        </form>
+
+    {% endif %}
+
+{% else %}
+
+    <!-- UNAVAILABLE -->
+
+    <button class="add-btn" type="button" disabled>
+        Unavailable
+    </button>
+
+{% endif %}
+
+</div>

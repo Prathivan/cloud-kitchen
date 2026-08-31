@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Butterfly Cloud Kitchen{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="{% url 'home' %}" class="logo">
+                <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
+                <span>Butterfly</span>
+                <small>Cloud Kitchen</small>
+            </a>
+
+            <nav class="nav-links">
+                <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a>
+                <a href="{% url 'menu' %}" class="{% if request.resolver_match.url_name == 'menu' %}active{% endif %}">Menu</a>
+                <a href="{% url 'about' %}" class="{% if request.resolver_match.url_name == 'about' %}active{% endif %}">About</a>
+                <a href="{% url 'contact' %}" class="{% if request.resolver_match.url_name == 'contact' %}active{% endif %}">Contact</a>
+            </nav>
+
+            <div class="nav-actions">
+                <a href="{% url 'cart' %}" class="cart-btn">
+                    🛒 Cart
+                    {% if cart_count > 0 %}
+                        <span class="cart-count">{{ cart_count }}</span>
+                    {% endif %}
+                </a>
+                                
+                {% if user.is_authenticated %}
+                    <a href="{% url 'account' %}" class="login-btn">My Account</a>
+                    <a href="{% url 'logout' %}" class="login-btn">Logout</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="login-btn">Login</a>
+                {% endif %}
+            </div>
+
+            <button class="nav-toggle" aria-label="Toggle menu" type="button">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Django messages -->
+    {% if messages %}
+        <div class="container messages-container">
+            {% for message in messages %}
+                <div class="alert-msg {% if message.tags %}alert-{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>{% block content %}{% endblock %}</main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="{% url 'home' %}" class="footer-logo">
+                    <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="Butterfly Cloud Kitchen" class="footer-logo-icon">
+                    <span class="footer-logo-text">Butterfly<small>Cloud Kitchen</small></span>
+                </a>
+                <p>Freshly prepared food, made with love and delivered to your doorstep.</p>
+            </div>
+
+            <div>
+                <h4>Quick Links</h4>
+                <a href="{% url 'home' %}">Home</a>
+                <a href="{% url 'menu' %}">Menu</a>
+                <a href="{% url 'about' %}">About Us</a>
+                <a href="{% url 'contact' %}">Contact</a>
+            </div>
+
+            <div>
+                <h4>Contact</h4>
+                <p>📞 +91 XXXXX XXXXX</p>
+                <p>📧 hello@butterfly.com</p>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>
+                © 2026 The Butterfly Cloud Kitchen. All rights reserved.
+                <span>|</span>
+                Designed & Developed by
+                <a href="https://prathivan.com" target="_blank" rel="noopener noreferrer">
+                    Prathivan
+                </a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/script.js' %}" defer></script>
+</body>
+</html>

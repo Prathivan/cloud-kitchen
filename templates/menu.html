@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Menu | Butterfly Cloud Kitchen{% endblock %}
+
+{% block content %}
+
+<section class="page-hero">
+
+    <div class="container">
+
+        <span>Our Menu</span>
+
+        <h1>Handpicked Dishes, Freshly Made</h1>
+
+        <p>
+            Browse our full menu and order your favourite meal —
+            from hearty mains to sweet endings.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <div class="container">
+
+        <!-- CATEGORY FILTERS -->
+
+        <div class="menu-filters">
+
+            <button
+                class="filter-btn active"
+                data-filter="all">
+                All
+            </button>
+
+            {% for category in categories %}
+
+            <button
+                class="filter-btn"
+                data-filter="{{ category.name|slugify }}">
+                {{ category.name }}
+            </button>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- MENU ITEMS -->
+
+        <div class="food-grid">
+
+            {% for item in menu_items %}
+
+            <article
+                class="food-card"
+                data-category="{{ item.category.name|slugify }}">
+
+                <!-- FOOD IMAGE -->
+
+                <div class="food-image">
+
+                    {% if item.image %}
+
+                    <img
+                        src="{{ item.image.url }}"
+                        alt="{{ item.name }}" loading="lazy" decoding="async">
+
+                    {% else %}
+
+                    <img
+                        src="{% static 'images/menu/veg-special.svg' %}"
+                        alt="{{ item.name }}" loading="lazy" decoding="async">
+
+                    {% endif %}
+
+
+                    {% if item.orderable %}
+
+                    <span class="food-tag">
+                        Available
+                    </span>
+
+                    {% else %}
+
+                    <span class="food-tag">
+                        Currently Unavailable
+                    </span>
+
+                    {% endif %}
+
+                </div>
+
+
+                <!-- FOOD INFO -->
+
+                <div class="food-info">
+
+                    <h3>
+                        <span class="food-type-dot {% if item.food_type == 'veg' %}veg{% else %}nonveg{% endif %}" aria-hidden="true"></span>
+                        {{ item.name }}
+                    </h3>
+
+
+                    {% if item.description %}
+
+                    <p>
+                        {{ item.description }}
+                    </p>
+
+                    {% endif %}
+
+
+                    <div class="food-bottom">
+
+                        <!-- PRICE -->
+
+                        <div class="price-block">
+                            {% include "partials/price.html" %}
+                        </div>
+
+
+                        <!-- CART CONTROLS -->
+
+                        {% include "partials/cart_controls.html" %}
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            {% empty %}
+
+            <div class="empty-menu">
+
+                <h3>
+                    No menu items available
+                </h3>
+
+                <p>
+                    Please add menu items from the Admin Panel.
+                </p>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- CTA -->
+
+<section class="cta">
+
+    <div class="container">
+
+        <h2>
+            Can't decide?
+        </h2>
+
+        <p>
+            Try our Chef's Special combo,
+            curated for first-time customers.
+        </p>
+
+        <a
+            href="{% url 'cart' %}"
+            class="primary-btn">
+
+            Go to Cart →
+
+        </a>
+
+    </div>
+
+</section>
+
+{% endblock %}

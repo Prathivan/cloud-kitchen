@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}My Orders | Butterfly Cloud Kitchen{% endblock %}
+
+{% block content %}
+
+<section class="page-hero">
+    <div class="container">
+        <span>Orders</span>
+        <h1>My Orders</h1>
+        <p>View your previous orders and their status.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+
+        {% if orders %}
+
+            {% for order in orders %}
+
+                <div class="order-card">
+
+                    <h3>
+                        Order #{{ order.id }}
+                    </h3>
+
+                    <p>
+                        Date:
+                        {{ order.created_at|date:"d M Y, h:i A" }}
+                    </p>
+
+                    <p>
+                        Total:
+                        ₹{{ order.total_amount }}
+                    </p>
+
+                    <p>
+                        Status:
+                        {{ order.status }}
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <div class="cart-empty">
+                <div class="empty-icon">📦</div>
+
+                <h3>No orders yet</h3>
+
+                <p>
+                    You haven't placed any orders yet.
+                </p>
+
+                <a href="{% url 'menu' %}" class="primary-btn">
+                    Browse Menu
+                </a>
+            </div>
+
+        {% endif %}
+
+    </div>
+</section>
+
+{% endblock %}

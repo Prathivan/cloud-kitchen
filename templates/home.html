@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Butterfly Cloud Kitchen | Homemade Goodness, Delivered With Love{% endblock %}
+{% block content %}
+
+<!-- ===================== HERO ===================== -->
+<section class="home-hero">
+    <div class="home-hero-glow home-hero-glow-one"></div>
+    <div class="home-hero-glow home-hero-glow-two"></div>
+
+    <div class="container home-hero-grid">
+        <div class="home-hero-copy">
+            <div class="home-eyebrow">
+                <span class="home-eyebrow-icon">🦋</span>
+                Women-led home kitchen
+            </div>
+
+            <h1>Homemade food.<br><span>Made with heart.</span></h1>
+
+            <p class="home-hero-description">
+                Fresh, comforting meals prepared with the warmth of a home kitchen
+                and delivered fresh to your doorstep.
+            </p>
+
+            <div class="home-hero-actions">
+                <a href="{% url 'menu' %}" class="primary-btn home-primary-btn">Explore Menu <span>→</span></a>
+                <a href="#popular-dishes" class="secondary-btn home-secondary-btn">See Popular Dishes</a>
+            </div>
+
+            <div class="home-trust-row">
+                <div class="home-trust-item">
+                    <span class="home-trust-icon">👩‍🍳</span>
+                    <div><strong>Home prepared</strong><small>Made fresh daily</small></div>
+                </div>
+                <div class="home-trust-item">
+                    <span class="home-trust-icon">🥗</span>
+                    <div><strong>Fresh ingredients</strong><small>Quality in every bite</small></div>
+                </div>
+                <div class="home-trust-item">
+                    <span class="home-trust-icon">🚚</span>
+                    <div><strong>Doorstep delivery</strong><small>Fresh to your door</small></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="home-hero-feature">
+            {% if chef_special_items %}
+            <div class="home-feature-card">
+                <div class="home-feature-topline">
+                    <span><i></i> TODAY'S CHEF SPECIAL</span>
+                    {% if chef_special_items|length > 1 %}<span class="home-slide-count">{{ chef_special_items|length }} specials</span>{% endif %}
+                </div>
+
+                <div class="slider home-chef-slider" data-slider data-autoplay="3200">
+                    <div class="slider-track">
+                        {% for item in chef_special_items %}
+                        <div class="slider-slide">
+                            <article class="home-chef-slide">
+                                <div class="home-chef-image-wrap">
+                                    {% if item.image %}
+                                    <img src="{{ item.image.url }}" alt="{{ item.name }}" {% if forloop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+                                    {% else %}
+                                    <img src="{% static 'images/menu/veg-special.svg' %}" alt="{{ item.name }}" loading="lazy" decoding="async">
+                                    {% endif %}
+                                    <div class="home-chef-image-shade"></div>
+                                    <span class="home-chef-badge">Chef's Pick</span>
+                                </div>
+                                <div class="home-chef-info">
+                                    <h2>
+                                        <span class="food-type-dot {% if item.food_type == 'veg' %}veg{% else %}nonveg{% endif %}" aria-hidden="true"></span>
+                                        {{ item.name }}
+                                    </h2>
+                                    {% if item.description %}<p>{{ item.description|truncatechars:90 }}</p>{% else %}<p>Freshly prepared with homemade goodness.</p>{% endif %}
+                                    <div class="home-chef-bottom">
+                                        <div class="price-block">{% include "partials/price.html" %}</div>
+                                        <a href="{% url 'menu' %}" class="home-order-link">Order <span>→</span></a>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if chef_special_items|length > 1 %}
+                    <button class="slider-nav prev" type="button" aria-label="Previous chef special">‹</button>
+                    <button class="slider-nav next" type="button" aria-label="Next chef special">›</button>
+                    <div class="slider-dots"></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="home-feature-card home-empty-feature">
+                <div class="home-empty-feature-icon">🍲</div>
+                <span>FRESH FROM OUR KITCHEN</span>
+                <h2>Something delicious<br>is cooking.</h2>
+                <p>Explore today's menu and find your next favourite meal.</p>
+                <a href="{% url 'menu' %}" class="primary-btn">Explore Menu →</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- ===================== RUNNING OFFERS ===================== -->
+{% if active_offers %}
+<section class="home-section home-offers-section">
+    <div class="container">
+        <div class="home-section-heading compact-heading">
+            <div>
+                <span>LIMITED TIME</span>
+                <h2>Fresh deals, just for you.</h2>
+            </div>
+            <p>Catch the latest offers before they are gone.</p>
+        </div>
+
+        <div class="slider home-offers-slider" data-slider data-autoplay="3600">
+            <div class="slider-track">
+                {% for offer in active_offers %}
+                <div class="slider-slide">
+                    {% if offer.image %}
+                    {% if offer.button_link %}<a href="{{ offer.button_link }}" class="home-offer-poster-link" aria-label="{{ offer.title }}">{% endif %}
+                    <article class="home-offer-poster">
+                        <img src="{{ offer.image.url }}" alt="{{ offer.title }}" {% if forloop.first %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+                    </article>
+                    {% if offer.button_link %}</a>{% endif %}
+                    {% else %}
+                    <article class="home-offer-banner home-offer-fallback">
+                        <div class="home-offer-content">
+                            <span class="home-offer-label">BUTTERFLY OFFER</span>
+                            <h3>{{ offer.title }}</h3>
+                            {% if offer.description %}<p>{{ offer.description }}</p>{% endif %}
+                            <a href="{% url 'menu' %}" class="home-light-btn">Order now <span>→</span></a>
+                        </div>
+                    </article>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if active_offers|length > 1 %}
+            <button class="slider-nav prev" type="button" aria-label="Previous offer">‹</button>
+            <button class="slider-nav next" type="button" aria-label="Next offer">›</button>
+            <div class="slider-dots"></div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ===================== POPULAR DISHES ===================== -->
+{% if popular_items %}
+<section class="home-section home-popular-section" id="popular-dishes">
+    <div class="container">
+        <div class="home-section-heading">
+            <div>
+                <span>CUSTOMER FAVOURITES</span>
+                <h2>Popular dishes</h2>
+                <p>The meals our customers keep coming back for.</p>
+            </div>
+            <a href="{% url 'menu' %}" class="home-view-link">View full menu <span>→</span></a>
+        </div>
+
+        <div class="slider home-popular-slider" data-slider data-autoplay="4000">
+            <div class="slider-track">
+                {% for item in popular_items %}
+                <div class="slider-slide">
+                    <article class="home-food-card">
+                        <div class="home-food-image">
+                            {% if item.image %}
+                            <img src="{{ item.image.url }}" alt="{{ item.name }}" loading="lazy" decoding="async">
+                            {% else %}
+                            <img src="{% static 'images/menu/veg-special.svg' %}" alt="{{ item.name }}" loading="lazy" decoding="async">
+                            {% endif %}
+                            <span class="home-popular-pill">Popular</span>
+                        </div>
+                        <div class="home-food-info">
+                            <h3><span class="food-type-dot {% if item.food_type == 'veg' %}veg{% else %}nonveg{% endif %}" aria-hidden="true"></span>{{ item.name }}</h3>
+                            {% if item.description %}<p>{{ item.description|truncatechars:82 }}</p>{% endif %}
+                            <div class="home-food-bottom">
+                                <div class="price-block">{% include "partials/price.html" %}</div>
+                                {% include "partials/cart_controls.html" %}
+                            </div>
+                        </div>
+                    </article>
+                </div>
+                {% endfor %}
+            </div>
+            {% if popular_items|length > 1 %}
+            <button class="slider-nav prev" type="button" aria-label="Previous popular dish">‹</button>
+            <button class="slider-nav next" type="button" aria-label="Next popular dish">›</button>
+            <div class="slider-dots"></div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ===================== WHY BUTTERFLY ===================== -->
+<section class="home-section home-why-section">
+    <div class="container">
+        <div class="home-why-card">
+            <div class="home-why-copy">
+                <span>WHY BUTTERFLY?</span>
+                <h2>A little taste of home,<br><strong>wherever you are.</strong></h2>
+                <p>We keep things simple: good ingredients, careful preparation and food that feels genuinely homemade.</p>
+            </div>
+            <div class="home-benefit-grid">
+                <div class="home-benefit"><span>🥬</span><div><strong>Fresh ingredients</strong><small>Prepared with care</small></div></div>
+                <div class="home-benefit"><span>👩‍🍳</span><div><strong>Home-style cooking</strong><small>Made by women entrepreneurs</small></div></div>
+                <div class="home-benefit"><span>❤️</span><div><strong>Made with love</strong><small>Comfort in every meal</small></div></div>
+                <div class="home-benefit"><span>🚚</span><div><strong>Delivered fresh</strong><small>Straight to your doorstep</small></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== REVIEWS ===================== -->
+{% if reviews %}
+<section class="home-section home-reviews-section">
+    <div class="container">
+        <div class="home-section-heading centered-heading">
+            <span>REAL WORDS</span>
+            <h2>Loved by our customers.</h2>
+            <p>A few kind words from people who have tasted Butterfly.</p>
+        </div>
+
+        <div class="slider home-reviews-slider" data-slider data-autoplay="4300">
+            <div class="slider-track">
+                {% for review in reviews %}
+                <div class="slider-slide">
+                    <article class="home-review-card">
+                        <div class="home-review-stars">{{ review.get_rating_display }}</div>
+                        <blockquote>“{{ review.review_text }}”</blockquote>
+                        <div class="home-review-author">
+                            {% if review.avatar %}
+                            <img src="{{ review.avatar.url }}" alt="{{ review.customer_name }}" loading="lazy" decoding="async">
+                            {% else %}
+                            <span>{{ review.customer_name|first|upper }}</span>
+                            {% endif %}
+                            <div><strong>{{ review.customer_name }}</strong><small>Verified customer</small></div>
+                        </div>
+                    </article>
+                </div>
+                {% endfor %}
+            </div>
+            {% if reviews|length > 1 %}
+            <button class="slider-nav prev" type="button" aria-label="Previous review">‹</button>
+            <button class="slider-nav next" type="button" aria-label="Next review">›</button>
+            <div class="slider-dots"></div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ===================== CTA ===================== -->
+<section class="home-final-cta">
+    <div class="home-final-shape home-final-shape-one"></div>
+    <div class="home-final-shape home-final-shape-two"></div>
+    <div class="container home-final-inner">
+        <div>
+            <span>READY WHEN YOU ARE</span>
+            <h2>Good food is only<br>one click away.</h2>
+            <p>Choose your favourites and let us bring a little homemade goodness to your day.</p>
+        </div>
+        <a href="{% url 'menu' %}" class="home-final-btn">Start ordering <span>→</span></a>
+    </div>
+</section>
+
+{% endblock %}

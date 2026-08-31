@@ -1,0 +1,6 @@
+{% if item.has_offer %}
+    <span class="price-original">₹{{ item.price|floatformat:0 }}</span>
+    <span class="price-offer">₹{{ item.offer_price|floatformat:0 }}</span>
+{% else %}
+    <strong>₹{{ item.price|floatformat:0 }}</strong>
+{% endif %}

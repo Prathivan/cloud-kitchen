@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Sign Up | Butterfly Cloud Kitchen{% endblock %}
+{% block content %}
+
+<section class="auth-section">
+    <div class="container">
+        <div class="auth-wrap">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <a href="{% url 'home' %}" class="logo">
+                        <img src="{% static 'images/icons/logo.svg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
+                    </a>
+                    <h1>Create Your Account</h1>
+                    <p>Sign up to start ordering from Butterfly Cloud Kitchen.</p>
+                </div>
+
+                <div class="auth-tabs">
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}" class="active">Sign Up</a>
+                </div>
+
+                {% if form.non_field_errors %}
+                    <p class="field-error" style="text-align:center; margin-bottom:14px;">{{ form.non_field_errors|striptags }}</p>
+                {% endif %}
+
+                <form action="{% url 'signup' %}" method="post" class="auth-form" novalidate>
+                    {% csrf_token %}
+
+                    <div class="form-group">
+                        <label for="id_full_name">Full Name</label>
+                        {{ form.full_name }}
+                        {% if form.full_name.errors %}
+                            <span class="field-error">{{ form.full_name.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_mobile_number">Mobile Number</label>
+                        {{ form.mobile_number }}
+                        {% if form.mobile_number.errors %}
+                            <span class="field-error">{{ form.mobile_number.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_email">Email Address</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <span class="field-error">{{ form.email.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_password">Password</label>
+                        <div class="password-field">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle" data-target="id_password" aria-label="Show password">Show</button>
+                        </div>
+                        {% if form.password.errors %}
+                            <span class="field-error">{{ form.password.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_confirm_password">Confirm Password</label>
+                        <div class="password-field">
+                            {{ form.confirm_password }}
+                            <button type="button" class="password-toggle" data-target="id_confirm_password" aria-label="Show password">Show</button>
+                        </div>
+                        <span id="password-match-note" class="field-error"></span>
+                        {% if form.confirm_password.errors %}
+                            <span class="field-error">{{ form.confirm_password.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="form-submit">Create Account</button>
+                </form>
+
+                <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

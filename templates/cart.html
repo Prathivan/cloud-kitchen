@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Your Cart | Butterfly Cloud Kitchen{% endblock %}
+
+{% block content %}
+
+<section class="page-hero">
+    <div class="container">
+        <span>Checkout</span>
+        <h1>Your Cart</h1>
+        <p>Review your order before checking out.</p>
+    </div>
+</section>
+
+
+<section class="cart-section" data-menu-url="{% url 'menu' %}">
+
+    <div class="container cart-layout">
+
+        <!-- ================= CART ITEMS ================= -->
+
+        <div class="cart-table-wrap">
+
+            <table class="cart-table">
+
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody id="cart-tbody">
+
+                    {% for cart_item in cart_items %}
+
+                    <tr data-price="{{ cart_item.display_price }}" data-cart-row data-cart-item-id="{{ cart_item.id }}">
+
+                        <!-- ITEM -->
+
+                        <td>
+
+                            <div class="cart-item-info">
+
+                                <div class="thumb">
+
+                                    {% if cart_item.menu_item.image %}
+
+                                        <img
+                                            src="{{ cart_item.menu_item.image.url }}"
+                                            alt="{{ cart_item.menu_item.name }}" loading="lazy" decoding="async">
+
+                                    {% endif %}
+
+                                </div>
+
+
+                                <div>
+
+                                    <h4>
+                                        {{ cart_item.menu_item.name }}
+                                    </h4>
+
+                                    {% if cart_item.menu_item.description %}
+
+                                        <span>
+                                            {{ cart_item.menu_item.description|truncatewords:8 }}
+                                        </span>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                        </td>
+
+
+                        <!-- PRICE -->
+
+                        <td>
+                            {% if cart_item.menu_item.has_offer %}
+                                <span class="price-original">₹{{ cart_item.menu_item.price|floatformat:0 }}</span>
+                                <span class="price-offer">₹{{ cart_item.display_price|floatformat:0 }}</span>
+                            {% else %}
+                                ₹{{ cart_item.display_price|floatformat:0 }}
+                            {% endif %}
+                        </td>
+
+
+                        <!-- QUANTITY -->
+
+                        <td>
+
+                            <div class="qty-control">
+
+
+                                <!-- MINUS -->
+
+                                {% if cart_item.quantity > 1 %}
+
+                                    <form
+                                        method="POST"
+                                        action="{% url 'update_cart_quantity' cart_item.id %}"
+                                        class="cart-qty-form"
+                                        style="display:inline;">
+
+                                        {% csrf_token %}
+
+                                        <input type="hidden" name="origin" value="cart">
+
+                                        <input
+                                            type="hidden"
+                                            name="quantity"
+                                            value="{{ cart_item.quantity|add:'-1' }}">
+
+                                        <button
+                                            type="submit"
+                                            class="qty-minus">
+                                            −
+                                        </button>
+
+                                    </form>
+
+                                {% else %}
+
+                                    <form
+                                        method="POST"
+                                        action="{% url 'update_cart_quantity' cart_item.id %}"
+                                        class="cart-qty-form"
+                                        style="display:inline;">
+
+                                        {% csrf_token %}
+
+                                        <input type="hidden" name="origin" value="cart">
+
+                                        <input
+                                            type="hidden"
+                                            name="quantity"
+                                            value="0">
+
+                                        <button
+                                            type="submit"
+                                            class="qty-minus">
+                                            −
+                                        </button>
+
+                                    </form>
+
+                                {% endif %}
+
+
+                                <!-- CURRENT QUANTITY -->
+
+                                <input
+                                    type="text"
+                                    value="{{ cart_item.quantity }}"
+                                    readonly>
+
+
+                                <!-- PLUS -->
+
+                                <form
+                                    method="POST"
+                                    action="{% url 'update_cart_quantity' cart_item.id %}"
+                                    class="cart-qty-form"
+                                    style="display:inline;">
+
+                                    {% csrf_token %}
+
+                                    <input type="hidden" name="origin" value="cart">
+
+                                    <input
+                                        type="hidden"
+                                        name="quantity"
+                                        value="{{ cart_item.quantity|add:'1' }}">
+
+                                    <button
+                                        type="submit"
+                                        class="qty-plus">
+                                        +
+                                    </button>
+
+                                </form>
+
+
+                            </div>
+
+                        </td>
+
+
+                        <!-- TOTAL -->
+
+                        <td class="row-total" data-row-total>
+
+                            ₹{{ cart_item.item_total|floatformat:0 }}
+
+                        </td>
+
+
+                        <!-- REMOVE -->
+
+                        <td>
+
+                            <form
+                                method="POST"
+                                action="{% url 'remove_from_cart' cart_item.id %}"
+                                class="cart-remove-form">
+
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="remove-btn">
+                                    Remove
+                                </button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+
+                    {% empty %}
+
+                    <!-- ================= EMPTY CART ================= -->
+
+                    <tr>
+
+                        <td colspan="5">
+
+                            <div class="empty-cart">
+
+                                <div class="empty-cart-icon">
+                                    🛒
+                                </div>
+
+                                <h3>
+                                    Your cart is empty
+                                </h3>
+
+                                <p>
+                                    Looks like you haven't added anything yet.
+                                    Explore our menu and find something delicious!
+                                </p>
+
+                                <a
+                                    href="{% url 'menu' %}"
+                                    class="primary-btn empty-cart-btn">
+                                    Browse Menu →
+                                </a>
+
+                                <span class="empty-cart-note">
+                                    Freshly prepared meals, just for you ❤️
+                                </span>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- ================= ORDER SUMMARY ================= -->
+
+        <aside class="cart-summary">
+
+            <h3>
+                Order Summary
+            </h3>
+
+
+            <!-- SUBTOTAL -->
+
+            <div class="summary-row" data-summary-subtotal-row>
+
+                <span>
+                    Subtotal
+                </span>
+
+                <span data-subtotal>
+                    ₹{{ subtotal|floatformat:0 }}
+                </span>
+
+            </div>
+
+
+            <!-- DELIVERY -->
+
+            <div class="summary-row" data-summary-delivery-row>
+
+                <span>
+                    Delivery Fee
+                </span>
+
+                <span data-delivery-fee>
+                    ₹{{ delivery_fee|floatformat:0 }}
+                </span>
+
+            </div>
+
+
+            <!-- TAX -->
+
+            <div class="summary-row">
+
+                <span>
+                    Taxes
+                </span>
+
+                <span>
+                    ₹{{ tax|floatformat:0 }}
+                </span>
+
+            </div>
+
+
+            <!-- PROMO -->
+
+            <div class="promo-row">
+
+                <input
+                    type="text"
+                    placeholder="Promo code">
+
+                <button type="button">
+                    Apply
+                </button>
+
+            </div>
+
+
+            <!-- TOTAL -->
+
+            <div class="summary-row total">
+
+                <span>
+                    Total
+                </span>
+
+                <span data-total>
+                    ₹{{ total|floatformat:0 }}
+                </span>
+
+            </div>
+
+
+            <!-- CHECKOUT -->
+
+            <form method="POST" action="{% url 'checkout' %}">
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="checkout-btn"
+                    data-checkout-btn
+                    {% if not cart_items %}disabled{% endif %}>
+
+                    Proceed to Checkout →
+
+                </button>
+            </form>
+
+
+            <p class="secure-note">
+                🔒 Secure checkout · Cash on Delivery available
+            </p>
+
+        </aside>
+
+    </div>
+
+</section>
+
+{% endblock %}

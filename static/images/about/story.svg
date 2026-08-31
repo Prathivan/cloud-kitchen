@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" fill="#fff2e8"/>
+  <text x="200" y="150" font-size="90" text-anchor="middle" dominant-baseline="central">📖</text>
+  <text x="200" y="255" font-size="16" fill="#24323d" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold">Our Story</text>
+</svg>
