@@ -3,16 +3,25 @@
 {% block title %}My Account | Butterfly Cloud Kitchen{% endblock %}
 {% block content %}
 
-<section class="auth-section">
+<section class="page-hero">
     <div class="container">
-        <div class="auth-wrap">
-            <div class="auth-card">
+        <span>Account</span>
+        <h1>My Account</h1>
+        <p>View and update your own details, and track your orders — all in one place.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container account-layout">
+
+        <div class="account-profile-col">
+            <div class="auth-card account-profile-card">
                 <div class="auth-header">
                     <a href="{% url 'home' %}" class="logo">
-                        <img src="{% static 'images/icons/logo.svg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
+                        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
                     </a>
-                    <h1>My Account</h1>
-                    <p>View and update your own details.</p>
+                    <h1>Profile Details</h1>
+                    <p>Your own information — only you can see or edit this.</p>
                 </div>
 
                 {% if form.non_field_errors %}
@@ -48,10 +57,63 @@
 
                     <button type="submit" class="form-submit">Save Changes</button>
                 </form>
-
-                <p class="auth-switch"><a href="{% url 'my_orders' %}">View my orders</a></p>
             </div>
         </div>
+
+        <div class="account-orders-col">
+            <div class="bck-panel-head" style="margin-bottom:16px;">
+                <h2 style="font-size:18px;color:var(--dark);">My Orders</h2>
+            </div>
+
+            {% if orders %}
+                <div class="orders-list orders-list-compact">
+                {% for order in orders %}
+                    <div class="order-card">
+                        <div class="order-card-head">
+                            <div>
+                                <h3>Order #{{ order.id }}</h3>
+                                <span class="order-date">{{ order.created_at|date:"d M Y, h:i A" }}</span>
+                            </div>
+                            <span class="order-status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                        </div>
+
+                        <ul class="order-items-list">
+                            {% for item in order.items.all %}
+                            <li><span>{{ item.item_name }} × {{ item.quantity }}</span><span>₹{{ item.subtotal }}</span></li>
+                            {% endfor %}
+                        </ul>
+
+                        <div class="order-card-total">
+                            <span>Total</span>
+                            <strong>₹{{ order.total_amount }}</strong>
+                        </div>
+
+                        {% if order.status != "cancelled" %}
+                        <div class="order-tracker">
+                            {% for step in order.progress_steps %}
+                            <div class="order-tracker-step {% if step.reached %}reached{% endif %}">
+                                <span class="order-tracker-dot"></span>
+                                <span class="order-tracker-label">{{ step.label }}</span>
+                                {% if step.timestamp %}<span class="order-tracker-time">{{ step.timestamp|date:"d M, h:i A" }}</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="order-cancelled-note">This order was cancelled{% if order.cancelled_at %} on {{ order.cancelled_at|date:"d M Y, h:i A" }}{% endif %}.</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="cart-empty">
+                    <div class="empty-icon">📦</div>
+                    <h3>No orders yet</h3>
+                    <p>You haven't placed any orders yet.</p>
+                    <a href="{% url 'menu' %}" class="primary-btn">Browse Menu</a>
+                </div>
+            {% endif %}
+        </div>
+
     </div>
 </section>
 

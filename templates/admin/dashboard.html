@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }} | Butterfly Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% load static %}
+<link rel="icon" type="image/png" href="{% static 'images/icons/butterfly.jpeg' %}">
+<style>
+:root {
+    --primary: #2b9ed8;
+    --primary-dark: #1878ad;
+    --accent: #f4a261;
+    --dark: #24323d;
+    --text: #52616b;
+    --light: #f7fbfd;
+    --white: #ffffff;
+    --border: #e5edf2;
+    --danger: #e2574c;
+    --success: #2e9e5b;
+    --purple: #8a5cf6;
+    --pink: #ec4899;
+    --sidebar-w: 260px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+    background: var(--light);
+    color: var(--dark);
+}
+a { text-decoration: none; color: inherit; }
+
+/* ---------------- Sidebar ---------------- */
+.bck-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    background: linear-gradient(180deg, #16283a 0%, #0f1f30 100%);
+    color: #cfe3ee;
+    overflow-y: auto;
+    z-index: 20;
+    transition: transform .25s ease;
+}
+.bck-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.bck-sidebar-brand .bck-logo-emoji { font-size: 26px; }
+.bck-sidebar-brand strong { display: block; color: #fff; font-size: 16px; }
+.bck-sidebar-brand span { display: block; font-size: 11px; color: #8fb3c8; }
+
+.bck-nav { padding: 14px 10px; }
+.bck-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #cfe3ee;
+    margin-bottom: 2px;
+}
+.bck-nav-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+.bck-nav-link.active { background: var(--primary); color: #fff; }
+.bck-nav-icon { width: 18px; text-align: center; }
+.bck-nav-group-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #6f93a8;
+    padding: 14px 12px 6px;
+}
+.bck-subnav { margin-left: 14px; border-left: 1px solid rgba(255,255,255,.08); padding-left: 10px; }
+.bck-subnav .bck-nav-link { font-size: 12.5px; font-weight: 500; padding: 7px 10px; }
+
+/* ---------------- Topbar + main ---------------- */
+.bck-main { margin-left: var(--sidebar-w); min-height: 100vh; display: flex; flex-direction: column; }
+.bck-topbar {
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+    padding: 14px 26px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.bck-hamburger {
+    display: none;
+    background: rgba(255,255,255,.15);
+    border: 0;
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.bck-search-form { flex: 1; max-width: 520px; }
+.bck-search-form input {
+    width: 100%;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 0;
+    font-size: 13px;
+    background: rgba(255,255,255,.92);
+}
+.bck-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.bck-bell { position: relative; color: #fff; font-size: 18px; }
+.bck-bell-badge {
+    position: absolute;
+    top: -6px; right: -8px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 1px 5px;
+}
+.bck-profile { display: flex; align-items: center; gap: 8px; color: #fff; }
+.bck-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.22);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px;
+}
+.bck-profile-name { font-size: 13px; font-weight: 700; }
+.bck-profile-role { font-size: 10px; opacity: .85; }
+
+.bck-content { padding: 26px; flex: 1; }
+.bck-page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.bck-page-subtitle { font-size: 13px; color: var(--text); margin-bottom: 22px; }
+
+/* ---------------- Stat cards ---------------- */
+.bck-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+.bck-stat-card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 16px 16px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    border: 1px solid var(--border);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.bck-stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(36,50,61,.1); }
+.bck-stat-icon {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex: 0 0 42px;
+}
+.bck-tone-blue .bck-stat-icon { background: #e5f4fc; }
+.bck-tone-amber .bck-stat-icon { background: #fdf1e4; }
+.bck-tone-purple .bck-stat-icon { background: #f1ebfe; }
+.bck-tone-green .bck-stat-icon { background: #e7f8ee; }
+.bck-tone-teal .bck-stat-icon { background: #e2f6f4; }
+.bck-tone-pink .bck-stat-icon { background: #fde8f1; }
+.bck-stat-label { font-size: 12px; color: var(--text); font-weight: 600; }
+.bck-stat-value { font-size: 22px; font-weight: 800; color: var(--dark); }
+
+/* ---------------- Panels ---------------- */
+.bck-grid-2col { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 18px; }
+.bck-grid-3col { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 18px; }
+@media (max-width: 1100px) {
+    .bck-grid-2col, .bck-grid-3col { grid-template-columns: 1fr; }
+}
+.bck-panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06);
+}
+.bck-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.bck-panel-head h2 { font-size: 15px; }
+.bck-panel-head a { font-size: 12px; font-weight: 700; color: var(--primary); }
+
+table.bck-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.bck-table th {
+    text-align: left; color: var(--text); font-weight: 700;
+    padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .3px;
+}
+table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-align: middle; }
+.bck-muted { color: #8b979e; font-size: 11px; }
+
+.bck-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 800; color: #fff; white-space: nowrap;
+}
+.bck-badge-pending { background: var(--accent); }
+.bck-badge-confirmed { background: var(--primary); }
+.bck-badge-preparing { background: var(--primary-dark); }
+.bck-badge-ready { background: var(--success); }
+.bck-badge-out_for_delivery { background: var(--purple); }
+.bck-badge-delivered { background: var(--success); }
+.bck-badge-cancelled { background: var(--danger); }
+
+.bck-actions-cell { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.bck-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 8px; background: #eef6fb; font-size: 13px;
+}
+.bck-inline-form { display: inline; }
+.bck-mini-btn {
+    border: 0; background: var(--primary); color: #fff; font-size: 11px; font-weight: 700;
+    padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+.bck-mini-btn:hover { background: var(--primary-dark); }
+
+/* Donut */
+.bck-donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.bck-donut {
+    width: 150px; height: 150px; border-radius: 50%;
+    flex: 0 0 150px;
+    position: relative;
+}
+.bck-donut::after {
+    content: ""; position: absolute; inset: 26px; background: var(--white); border-radius: 50%;
+}
+.bck-donut-legend { list-style: none; font-size: 12px; flex: 1; min-width: 140px; }
+.bck-donut-legend li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.bck-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; }
+
+/* Quick actions */
+.bck-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bck-quick-card {
+    border-radius: 12px; padding: 14px; border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 700;
+}
+.bck-quick-card .bck-quick-icon { font-size: 18px; }
+.bck-quick-card span.bck-quick-sub { display: block; font-size: 10.5px; font-weight: 500; color: var(--text); }
+.bck-quick-blue { background: #eef7fc; color: var(--primary-dark); }
+.bck-quick-amber { background: #fdf3e6; color: #b5651d; }
+.bck-quick-star { background: #fdf1e0; color: #b5651d; }
+.bck-quick-fire { background: #fdeceb; color: var(--danger); }
+.bck-quick-green { background: #e9f9f0; color: var(--success); }
+.bck-quick-teal { background: #e3f6f4; color: #12766a; }
+
+/* Recent reviews */
+.bck-review { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f2f6f8; }
+.bck-review:last-child { border-bottom: 0; }
+.bck-review-avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: #ece4fd; color: #6c3fc9;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex: 0 0 36px;
+}
+.bck-review-name { font-size: 12.5px; font-weight: 700; }
+.bck-review-stars { color: var(--accent); font-size: 11px; letter-spacing: 1px; }
+.bck-review-text { font-size: 12px; color: var(--text); margin-top: 2px; }
+.bck-review-time { font-size: 10px; color: #8b979e; margin-left: auto; white-space: nowrap; }
+
+@media (max-width: 900px) {
+    .bck-sidebar { transform: translateX(-100%); }
+    .bck-sidebar.open { transform: translateX(0); }
+    .bck-main { margin-left: 0; }
+    .bck-hamburger { display: inline-flex; align-items: center; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<aside class="bck-sidebar" id="bckSidebar">
+    <div class="bck-sidebar-brand">
+        <span class="bck-logo-emoji">🦋</span>
+        <div>
+            <strong>Butterfly Admin</strong>
+            <span>Kitchen Management</span>
+        </div>
+    </div>
+    <nav class="bck-nav">
+        <a href="{% url 'admin:index' %}" class="bck-nav-link active"><span class="bck-nav-icon">🏠</span> Dashboard</a>
+
+        <div class="bck-nav-group-label">Orders</div>
+        <a href="{% url 'admin:orders_order_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🧾</span> All Orders</a>
+        <div class="bck-subnav">
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=pending" class="bck-nav-link">Pending</a>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=preparing" class="bck-nav-link">Preparing</a>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=ready" class="bck-nav-link">Ready</a>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=out_for_delivery" class="bck-nav-link">Out for Delivery</a>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=delivered" class="bck-nav-link">Delivered</a>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=cancelled" class="bck-nav-link">Cancelled</a>
+        </div>
+
+        <div class="bck-nav-group-label">Menu Management</div>
+        <a href="{% url 'admin:menu_menuitem_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🍽️</span> Menu Items</a>
+        <a href="{% url 'admin:menu_category_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🗂️</span> Categories</a>
+        <a href="{% url 'admin:menu_menuitem_changelist' %}?is_chef_special__exact=1" class="bck-nav-link"><span class="bck-nav-icon">⭐</span> Chef Specials</a>
+        <a href="{% url 'admin:menu_menuitem_changelist' %}?is_popular__exact=1" class="bck-nav-link"><span class="bck-nav-icon">🔥</span> Popular Dishes</a>
+
+        <div class="bck-nav-group-label">Business</div>
+        <a href="{% url 'admin:accounts_customerprofile_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">👥</span> Customers</a>
+        <a href="{% url 'admin:menu_customerreview_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">⭐</span> Reviews</a>
+        <a href="{% url 'admin:menu_runningoffer_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🏷️</span> Offers</a>
+        <a href="{% url 'admin:reports' %}" class="bck-nav-link"><span class="bck-nav-icon">📊</span> Reports</a>
+
+        <div class="bck-nav-group-label">Administration</div>
+        <a href="{% url 'admin:auth_user_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🛡️</span> Users &amp; Roles</a>
+        <a href="{% url 'admin:password_change' %}" class="bck-nav-link"><span class="bck-nav-icon">⚙️</span> Change Password</a>
+        <a href="{% url 'admin:logout' %}" class="bck-nav-link"><span class="bck-nav-icon">🚪</span> Logout</a>
+    </nav>
+</aside>
+
+<div class="bck-main">
+    <header class="bck-topbar">
+        <button class="bck-hamburger" id="bckHamburger" type="button">☰</button>
+        <form class="bck-search-form" action="{% url 'admin:global_search' %}" method="get">
+            <input type="search" name="q" placeholder="Search for orders, customers, menu items…" value="{{ request.GET.q }}">
+        </form>
+        <div class="bck-topbar-right">
+            <a href="{% url 'admin:orders_order_changelist' %}?status__exact=pending" class="bck-bell" title="Pending orders">
+                🔔
+                <span class="bck-bell-badge" id="bckPendingBadge" style="{% if not pending_count %}display:none;{% endif %}">{{ pending_count }}</span>
+            </a>
+            <div class="bck-profile">
+                <div class="bck-avatar">{{ request.user.username|slice:":2"|upper }}</div>
+                <div>
+                    <div class="bck-profile-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                    <div class="bck-profile-role">{% if request.user.is_superuser %}Super Admin{% else %}Staff{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="bck-content">
+        <h1 class="bck-page-title">Kitchen Management Dashboard</h1>
+        <p class="bck-page-subtitle">Welcome back! Here's what's happening in your kitchen today.</p>
+
+        {% if messages %}
+        <ul style="list-style:none;margin-bottom:16px;">
+            {% for message in messages %}
+            <li style="background:#e9f9f0;color:#12766a;padding:10px 14px;border-radius:10px;font-size:12.5px;margin-bottom:6px;">{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="bck-stat-grid" id="bckStatGrid">
+            {% for card in stat_cards %}
+            <a href="{{ card.url }}" class="bck-stat-card bck-tone-{{ card.tone }}">
+                <span class="bck-stat-icon">{{ card.icon }}</span>
+                <span>
+                    <span class="bck-stat-label">{{ card.label }}</span><br>
+                    <span class="bck-stat-value" data-stat-key="{{ card.key }}">{% if card.is_currency %}₹{% endif %}{{ card.value }}</span>
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="bck-grid-2col">
+            <div class="bck-panel">
+                <div class="bck-panel-head">
+                    <h2>Today's Orders</h2>
+                    <a href="{% url 'admin:orders_order_changelist' %}">View All Orders →</a>
+                </div>
+                <div style="overflow-x:auto;">
+                <table class="bck-table">
+                    <thead>
+                        <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Amount</th><th>Status</th><th>Time</th><th>Action</th></tr>
+                    </thead>
+                    <tbody id="bckOrdersRows">
+                        {% include "admin/_dashboard_orders_rows.html" %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+
+            <div class="bck-panel">
+                <div class="bck-panel-head"><h2>Order Status Overview</h2></div>
+                <div class="bck-donut-wrap">
+                    <div class="bck-donut" id="bckDonut" style="background: {{ donut_gradient }};"></div>
+                    <ul class="bck-donut-legend" id="bckDonutLegend">
+                        {% for row in status_rows %}
+                        <li><span class="bck-dot" style="background:{{ row.color }};"></span> {{ row.label }} (<span data-status-count="{{ row.status }}">{{ row.count }}</span>)</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="bck-grid-3col">
+            <div class="bck-panel">
+                <div class="bck-panel-head">
+                    <h2>Best-Selling Items</h2>
+                    <a href="{% url 'admin:reports' %}">View Full Report →</a>
+                </div>
+                <table class="bck-table">
+                    <thead><tr><th>#</th><th>Item</th><th>Units Sold</th><th>Revenue</th></tr></thead>
+                    <tbody>
+                        {% for row in best_sellers %}
+                        <tr><td>{{ forloop.counter }}</td><td>{{ row.item_name }}</td><td>{{ row.units_sold }}</td><td>₹{{ row.revenue }}</td></tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="bck-muted" style="text-align:center;padding:18px;">No sales yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bck-panel">
+                <div class="bck-panel-head"><h2>Quick Actions</h2></div>
+                <div class="bck-quick-grid">
+                    <a class="bck-quick-card bck-quick-blue" href="{% url 'admin:menu_menuitem_add' %}"><span class="bck-quick-icon">＋</span><span>Add Menu Item<span class="bck-quick-sub">Add new dish</span></span></a>
+                    <a class="bck-quick-card bck-quick-amber" href="{% url 'admin:menu_runningoffer_add' %}"><span class="bck-quick-icon">＋</span><span>Create Offer<span class="bck-quick-sub">Create new offer</span></span></a>
+                    <a class="bck-quick-card bck-quick-star" href="{% url 'admin:menu_menuitem_changelist' %}?is_chef_special__exact=1"><span class="bck-quick-icon">⭐</span><span>Chef Specials<span class="bck-quick-sub">Manage specials</span></span></a>
+                    <a class="bck-quick-card bck-quick-fire" href="{% url 'admin:menu_menuitem_changelist' %}?is_popular__exact=1"><span class="bck-quick-icon">🔥</span><span>Popular Dishes<span class="bck-quick-sub">Manage popular</span></span></a>
+                    <a class="bck-quick-card bck-quick-green" href="{% url 'admin:reports' %}"><span class="bck-quick-icon">📈</span><span>View Reports<span class="bck-quick-sub">Sales &amp; analytics</span></span></a>
+                    <a class="bck-quick-card bck-quick-teal" href="{% url 'admin:orders_order_changelist' %}"><span class="bck-quick-icon">🧾</span><span>Manage Orders<span class="bck-quick-sub">View all orders</span></span></a>
+                </div>
+            </div>
+
+            <div class="bck-panel">
+                <div class="bck-panel-head">
+                    <h2>Recent Reviews</h2>
+                    <a href="{% url 'admin:menu_customerreview_changelist' %}">View All →</a>
+                </div>
+                {% for review in recent_reviews %}
+                <div class="bck-review">
+                    <div class="bck-review-avatar">{{ review.customer_name|slice:":2"|upper }}</div>
+                    <div>
+                        <div class="bck-review-name">{{ review.customer_name }}</div>
+                        <div class="bck-review-stars">{{ review.star_display }}</div>
+                        <div class="bck-review-text">{{ review.review_text|truncatechars:70 }}</div>
+                    </div>
+                    <div class="bck-review-time">{{ review.created_at|timesince }} ago</div>
+                </div>
+                {% empty %}
+                <p class="bck-muted">No approved reviews yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById("bckHamburger").addEventListener("click", function () {
+    document.getElementById("bckSidebar").classList.toggle("open");
+});
+
+// Live-refresh the dashboard (stat cards, donut, today's orders table)
+// without a page reload, so a new order placed by a customer shows up
+// on its own.
+(function () {
+    var statsUrl = "{% url 'admin:dashboard_stats' %}";
+
+    function applyStats(data) {
+        document.querySelectorAll("[data-stat-key]").forEach(function (el) {
+            var key = el.getAttribute("data-stat-key");
+            if (!(key in data.cards)) return;
+            var value = data.cards[key];
+            el.textContent = (key === "todays_revenue" ? "₹" : "") + value;
+        });
+
+        var donut = document.getElementById("bckDonut");
+        if (donut) donut.style.background = data.donut_gradient;
+
+        (data.status_rows || []).forEach(function (row) {
+            var el = document.querySelector('[data-status-count="' + row.status + '"]');
+            if (el) el.textContent = row.count;
+        });
+
+        var badge = document.getElementById("bckPendingBadge");
+        if (badge) {
+            badge.textContent = data.pending_count;
+            // Hide the badge entirely once there are no pending orders,
+            // instead of leaving a stale "0" bubble showing.
+            badge.style.display = data.pending_count > 0 ? "" : "none";
+        }
+
+        var rows = document.getElementById("bckOrdersRows");
+        if (rows && typeof data.orders_html === "string") {
+            rows.innerHTML = data.orders_html;
+        }
+    }
+
+    function poll() {
+        fetch(statsUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) { if (data) applyStats(data); })
+            .catch(function () { /* silent — next poll will retry */ });
+    }
+
+    setInterval(poll, 12000);
+})();
+</script>
+</body>
+</html>

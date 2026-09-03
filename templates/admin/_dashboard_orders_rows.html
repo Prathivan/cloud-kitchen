@@ -1,0 +1,27 @@
+{% if todays_orders %}
+{% for order in todays_orders %}
+<tr>
+    <td><a href="{% url 'admin:orders_order_change' order.id %}">#ORD{{ order.id|stringformat:"05d" }}</a></td>
+    <td>
+        {{ order.user.customer_profile.full_name|default:order.user.username }}<br>
+        <span class="bck-muted">{{ order.user.customer_profile.mobile_number }}</span>
+    </td>
+    <td>{{ order.item_total }} item{{ order.item_total|pluralize }}</td>
+    <td>₹{{ order.total_amount }}</td>
+    <td><span class="bck-badge bck-badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
+    <td>{{ order.created_at|date:"h:i A" }}</td>
+    <td class="bck-actions-cell">
+        <a href="{% url 'admin:orders_order_change' order.id %}" class="bck-icon-btn" title="View">👁️</a>
+        {% if order.next_status %}
+        <form method="post" action="{% url 'admin:advance_order' order.id %}" class="bck-inline-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'admin:index' %}">
+            <button type="submit" class="bck-mini-btn">{{ order.next_label }}</button>
+        </form>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="7" class="bck-muted" style="text-align:center;padding:24px;">No orders yet today.</td></tr>
+{% endif %}

@@ -24,7 +24,10 @@ def home(request):
         ),
         request.user,
     )
-    active_offers = RunningOffer.objects.filter(is_active=True)
+    active_offers = [
+        offer for offer in RunningOffer.objects.filter(is_active=True)
+        if offer.is_currently_active()
+    ]
     reviews = CustomerReview.objects.filter(is_active=True)
 
     return render(
@@ -73,6 +76,16 @@ def login_view(request):
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
         user = authenticate(request, username=username, password=password)
+        if user is None and username:
+            # Signup always stores the email lowercased as the username
+            # (see CustomerSignupForm.clean_email), but Django's default
+            # auth backend matches usernames case-sensitively. Someone
+            # who signs up as "Jane@Example.com" gets stored as
+            # "jane@example.com" — if they then type the capitalised
+            # version again at login, authenticate() above fails even
+            # though the password is correct. Retry once with the
+            # lowercased value before giving up.
+            user = authenticate(request, username=username.lower(), password=password)
         if user is not None:
             # Customers land on the normal website; this is the same
             # redirect for every account type here because this login
@@ -160,7 +173,13 @@ def account_view(request):
             },
         )
 
-    return render(request, "account.html", {"form": form, "profile": profile})
+    orders = (
+        request.user.orders
+        .prefetch_related("items")
+        .order_by("-created_at")
+    )
+
+    return render(request, "account.html", {"form": form, "profile": profile, "orders": orders})
 
 
 def cart(request):

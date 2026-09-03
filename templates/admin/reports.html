@@ -1,0 +1,124 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+/* Force light, high-contrast styling for this custom page regardless
+   of Django admin's dark-mode theme toggle/prefers-color-scheme --
+   without these !importants, Django's dark-theme table striping can
+   paint a dark row background behind our dark text, making rows
+   nearly unreadable. */
+#content, #content-main { color-scheme: light; }
+.bck-report-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 22px; }
+.bck-report-filters a {
+    padding: 7px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    text-decoration: none !important; color: #24323d !important; background: #fff !important; border: 1px solid #e5edf2;
+}
+.bck-report-filters a.active { background: #2b9ed8 !important; color: #fff !important; border-color: #2b9ed8; }
+.bck-report-custom-form { display: flex; gap: 8px; align-items: center; margin: 4px 0 22px; font-size: 12px; color: #24323d; }
+.bck-report-custom-form input[type=date] { padding: 5px 8px; border: 1px solid #e5edf2; border-radius: 6px; background: #fff; color: #24323d; }
+.bck-report-custom-form button {
+    padding: 6px 14px; border-radius: 8px; border: 0; background: #1878ad !important; color: #fff !important;
+    font-weight: 700; font-size: 12px; cursor: pointer;
+}
+.bck-dashboard-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin: 0 0 24px;
+}
+.bck-stat-card {
+    background: #fff !important; border: 1px solid #e5edf2; border-radius: 14px; padding: 16px 18px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06); display: flex; flex-direction: column; gap: 6px;
+}
+.bck-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #52616b !important; }
+.bck-stat-value { font-size: 24px; font-weight: 800; color: #24323d !important; }
+.bck-panel {
+    background: #fff !important; border: 1px solid #e5edf2; border-radius: 14px; padding: 18px 20px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06); margin-bottom: 26px;
+}
+.bck-panel h2 { font-size: 15px; margin: 0 0 12px; color: #24323d !important; }
+.bck-panel-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff !important; }
+.bck-panel-table tr { background: #fff !important; }
+.bck-panel-table th { text-align: left; color: #52616b !important; font-weight: 700; padding: 8px 10px; border-bottom: 1px solid #e5edf2; background: #fff !important; }
+.bck-panel-table td { padding: 8px 10px; border-bottom: 1px solid #f2f6f8; color: #24323d !important; background: #fff !important; }
+</style>
+{% endblock %}
+
+{% block content_title %}<h1>{{ title }}</h1>{% endblock %}
+
+{% block content %}
+<p style="color:#52616b;margin-top:-8px;">{{ start_date }} &mdash; {{ end_date }}</p>
+
+<div class="bck-report-filters">
+    <a href="?range=today" class="{% if range_key == 'today' %}active{% endif %}">Today</a>
+    <a href="?range=yesterday" class="{% if range_key == 'yesterday' %}active{% endif %}">Yesterday</a>
+    <a href="?range=7d" class="{% if range_key == '7d' %}active{% endif %}">Last 7 Days</a>
+    <a href="?range=30d" class="{% if range_key == '30d' %}active{% endif %}">Last 30 Days</a>
+</div>
+
+<form class="bck-report-custom-form" method="get">
+    <input type="hidden" name="range" value="custom">
+    <label>From <input type="date" name="start" value="{% if range_key == 'custom' %}{{ start_date }}{% endif %}"></label>
+    <label>To <input type="date" name="end" value="{% if range_key == 'custom' %}{{ end_date }}{% endif %}"></label>
+    <button type="submit">Custom Range</button>
+</form>
+
+<div class="bck-dashboard-grid">
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Total Orders</span>
+        <span class="bck-stat-value">{{ total_orders }}</span>
+    </div>
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Cancelled</span>
+        <span class="bck-stat-value">{{ cancelled_orders }}</span>
+    </div>
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Total Sales</span>
+        <span class="bck-stat-value">₹{{ total_sales }}</span>
+    </div>
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Avg Order Value</span>
+        <span class="bck-stat-value">₹{{ average_order_value|floatformat:0 }}</span>
+    </div>
+</div>
+
+<div class="bck-panel">
+    <h2>Best-Selling Items</h2>
+    {% if best_sellers %}
+    <table class="bck-panel-table">
+        <thead><tr><th>Rank</th><th>Item</th><th>Quantity Sold</th><th>Revenue</th></tr></thead>
+        <tbody>
+            {% for row in best_sellers %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ row.item_name }}</td>
+                <td>{{ row.units_sold }}</td>
+                <td>₹{{ row.revenue }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#8b979e;">No orders in this range yet.</p>
+    {% endif %}
+</div>
+
+<div class="bck-panel">
+    <h2>Popular Categories</h2>
+    {% if popular_categories %}
+    <table class="bck-panel-table">
+        <thead><tr><th>Category</th><th>Units Sold</th></tr></thead>
+        <tbody>
+            {% for row in popular_categories %}
+            <tr>
+                <td>{{ row.menu_item__category__name|default:"Uncategorised" }}</td>
+                <td>{{ row.units_sold }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#8b979e;">No orders in this range yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

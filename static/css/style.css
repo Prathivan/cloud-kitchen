@@ -496,6 +496,216 @@ ul {
     padding: 85px 0;
 }
 
+/* =========================
+   ORDERS (My Orders page)
+   ========================= */
+
+/* =========================
+   ACCOUNT PAGE (profile + orders together)
+   ========================= */
+
+.account-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    align-items: start;
+    gap: 30px;
+}
+
+.account-profile-col { position: sticky; top: 100px; }
+
+.account-profile-card {
+    box-shadow: var(--shadow);
+    margin: 0;
+}
+
+.orders-list-compact {
+    max-width: none;
+    margin: 0;
+}
+
+@media (max-width: 900px) {
+    .account-layout {
+        grid-template-columns: 1fr;
+    }
+    .account-profile-col {
+        position: static;
+    }
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 780px;
+    margin: 0 auto;
+}
+
+.order-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow);
+}
+
+.order-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.order-card-head h3 {
+    font-size: 17px;
+    color: var(--dark);
+    margin-bottom: 2px;
+}
+
+.order-date {
+    font-size: 12px;
+    color: var(--text);
+}
+
+.order-status-badge {
+    flex: 0 0 auto;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.order-status-badge.status-pending { background: var(--accent); }
+.order-status-badge.status-confirmed { background: var(--primary); }
+.order-status-badge.status-preparing { background: var(--primary-dark); }
+.order-status-badge.status-ready { background: var(--success); }
+.order-status-badge.status-out_for_delivery { background: #8a5cf6; }
+.order-status-badge.status-delivered { background: var(--success); }
+.order-status-badge.status-cancelled { background: var(--danger); }
+
+.order-items-list {
+    list-style: none;
+    padding: 14px 0;
+    margin: 0 0 12px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.order-items-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text);
+    padding: 4px 0;
+}
+
+.order-card-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: var(--dark);
+    margin-bottom: 18px;
+}
+
+.order-card-total strong {
+    font-size: 17px;
+    color: var(--primary-dark);
+}
+
+.order-cancelled-note {
+    font-size: 13px;
+    color: var(--danger);
+    background: #fdeceb;
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+/* Horizontal progress tracker: a line of dots connected by a bar that
+   fills in as reached; the last-reached dot is the current stage. */
+.order-tracker {
+    display: flex;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-top: 4px;
+}
+
+.order-tracker-step {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 84px;
+    text-align: center;
+    padding-top: 16px;
+}
+
+.order-tracker-step::before {
+    /* connecting line to the previous step */
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+}
+
+.order-tracker-step:first-child::before {
+    display: none;
+}
+
+.order-tracker-step.reached::before {
+    background: var(--success);
+}
+
+.order-tracker-dot {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--white);
+    box-shadow: 0 0 0 1px var(--border);
+    z-index: 1;
+}
+
+.order-tracker-step.reached .order-tracker-dot {
+    background: var(--success);
+    box-shadow: 0 0 0 1px var(--success);
+}
+
+.order-tracker-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 8px;
+}
+
+.order-tracker-step.reached .order-tracker-label {
+    color: var(--dark);
+}
+
+.order-tracker-time {
+    display: block;
+    font-size: 10px;
+    color: #8b979e;
+    margin-top: 2px;
+}
+
+@media (max-width: 600px) {
+    .order-tracker { justify-content: flex-start; }
+    .order-tracker-step { min-width: 76px; }
+    .order-card { padding: 20px 18px; }
+}
+
 .section-heading {
     text-align: center;
     margin-bottom: 45px;
