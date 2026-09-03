@@ -53,7 +53,7 @@ def checkout(request):
 
     try:
         with transaction.atomic():
-            order = Order.objects.create(user=request.user, status=Order.STATUS_CONFIRMED)
+            order = Order.objects.create(user=request.user, status=Order.STATUS_PENDING)
             total_amount = Decimal("0.00")
 
             for cart_item in cart_items:

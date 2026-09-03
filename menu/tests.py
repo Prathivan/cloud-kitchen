@@ -154,3 +154,43 @@ class CombinedAvailabilityTests(TestCase):
         item.is_available = False
         item.save()
         self.assertFalse(item.is_currently_orderable())
+
+
+class RunningOfferSchedulingTests(TestCase):
+    def test_active_with_no_dates_is_currently_active(self):
+        from menu.models import RunningOffer
+        offer = RunningOffer.objects.create(title="Weekend Deal", is_active=True)
+        self.assertTrue(offer.is_currently_active())
+        self.assertEqual(offer.schedule_state, "Active")
+
+    def test_future_start_date_is_scheduled_not_active(self):
+        from menu.models import RunningOffer
+        tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        offer = RunningOffer.objects.create(title="Upcoming", is_active=True, start_date=tomorrow)
+        self.assertFalse(offer.is_currently_active())
+        self.assertEqual(offer.schedule_state, "Scheduled")
+
+    def test_past_end_date_is_expired_not_active(self):
+        from menu.models import RunningOffer
+        yesterday = timezone.localdate() - datetime.timedelta(days=1)
+        offer = RunningOffer.objects.create(title="Old Deal", is_active=True, end_date=yesterday)
+        self.assertFalse(offer.is_currently_active())
+        self.assertEqual(offer.schedule_state, "Expired")
+
+    def test_inactive_flag_overrides_dates(self):
+        from menu.models import RunningOffer
+        offer = RunningOffer.objects.create(title="Off", is_active=False)
+        self.assertFalse(offer.is_currently_active())
+        self.assertEqual(offer.schedule_state, "Inactive")
+
+    def test_end_date_before_start_date_rejected(self):
+        from django.core.exceptions import ValidationError
+        from menu.models import RunningOffer
+        today = timezone.localdate()
+        offer = RunningOffer(
+            title="Bad Range",
+            start_date=today,
+            end_date=today - datetime.timedelta(days=1),
+        )
+        with self.assertRaises(ValidationError):
+            offer.full_clean()

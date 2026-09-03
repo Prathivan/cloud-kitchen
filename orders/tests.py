@@ -37,7 +37,7 @@ class CheckoutFlowTests(TestCase):
         self.client.post(reverse("checkout"))
 
         order = Order.objects.get(user=self.user)
-        self.assertEqual(order.status, Order.STATUS_CONFIRMED)
+        self.assertEqual(order.status, Order.STATUS_PENDING)
         self.assertEqual(order.total_amount, Decimal("180.00") * 3)
 
         item = OrderItem.objects.get(order=order)
@@ -127,11 +127,137 @@ class ConcurrentCheckoutTests(TransactionTestCase):
 
         self.item.refresh_from_db()
         # Only 5 units were remaining (100 - 95). Even though both users
-        # each requested 3, the combined confirmed total must never
-        # exceed the daily limit.
+        # each requested 3, the combined total sold via a successful
+        # checkout must never exceed the daily limit. Successful
+        # checkouts create orders in STATUS_PENDING (the workflow's
+        # entry point).
         self.assertLessEqual(self.item.total_selling_units, 100)
-        confirmed_orders = Order.objects.filter(status=Order.STATUS_CONFIRMED)
-        confirmed_quantity = sum(
-            oi.quantity for order in confirmed_orders for oi in order.items.all()
+        placed_orders = Order.objects.filter(status=Order.STATUS_PENDING)
+        placed_quantity = sum(
+            oi.quantity for order in placed_orders for oi in order.items.all()
         )
-        self.assertLessEqual(95 + confirmed_quantity, 100)
+        self.assertLessEqual(95 + placed_quantity, 100)
+
+
+class OrderWorkflowTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("carol", password="pw12345!")
+        self.order = Order.objects.create(user=self.user, status=Order.STATUS_PENDING)
+
+    def test_advance_to_stamps_timestamp_once(self):
+        self.assertIsNone(self.order.confirmed_at)
+        self.order.advance_to(Order.STATUS_CONFIRMED)
+        self.order.save()
+        first_stamp = self.order.confirmed_at
+        self.assertIsNotNone(first_stamp)
+
+        # Re-advancing to the same status must not overwrite the
+        # original timestamp.
+        self.order.advance_to(Order.STATUS_CONFIRMED)
+        self.assertEqual(self.order.confirmed_at, first_stamp)
+
+    def test_progress_steps_reached_flags(self):
+        self.order.advance_to(Order.STATUS_CONFIRMED)
+        self.order.advance_to(Order.STATUS_PREPARING)
+        self.order.save()
+
+        steps = {step["status"]: step["reached"] for step in self.order.progress_steps()}
+        self.assertTrue(steps[Order.STATUS_PENDING])
+        self.assertTrue(steps[Order.STATUS_CONFIRMED])
+        self.assertTrue(steps[Order.STATUS_PREPARING])
+        self.assertFalse(steps[Order.STATUS_READY])
+        self.assertFalse(steps[Order.STATUS_DELIVERED])
+
+
+class OrderAdminActionTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user("kitchenstaff", password="pw12345!", is_staff=True)
+        # Grant the permissions the admin actions/changelist need.
+        from django.contrib.auth.models import Permission
+        perms = Permission.objects.filter(codename__in=["view_order", "change_order"])
+        self.staff.user_permissions.add(*perms)
+        self.client.force_login(self.staff)
+
+        customer = User.objects.create_user("dave", password="pw12345!")
+        self.pending_order = Order.objects.create(user=customer, status=Order.STATUS_PENDING)
+        self.ready_order = Order.objects.create(user=customer, status=Order.STATUS_READY)
+
+    def test_accept_action_only_moves_pending_orders(self):
+        from orders.admin import accept_orders
+
+        class FakeModelAdmin:
+            pass
+
+        request = self.client.get(reverse("admin:orders_order_changelist")).wsgi_request
+        accept_orders(FakeModelAdmin(), request, Order.objects.filter(id__in=[self.pending_order.id, self.ready_order.id]))
+
+        self.pending_order.refresh_from_db()
+        self.ready_order.refresh_from_db()
+        self.assertEqual(self.pending_order.status, Order.STATUS_CONFIRMED)
+        self.assertIsNotNone(self.pending_order.confirmed_at)
+        # The order that wasn't in "pending" must be left untouched.
+        self.assertEqual(self.ready_order.status, Order.STATUS_READY)
+
+    def test_admin_dashboard_index_renders_with_stats(self):
+        resp = self.client.get(reverse("admin:index"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Kitchen Management Dashboard")
+        self.assertContains(resp, "Today's Orders")
+
+
+class DashboardQuickActionTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_superuser("dashadmin", "dashadmin@example.com", "AdminPW12345")
+        self.client.login(username="dashadmin", password="AdminPW12345")
+        customer = User.objects.create_user("erin", password="pw12345!")
+        self.order = Order.objects.create(user=customer, status=Order.STATUS_PENDING, total_amount="150.00")
+
+    def test_dashboard_shows_stat_cards_and_quick_action(self):
+        resp = self.client.get(reverse("admin:index"))
+        self.assertContains(resp, "Today's Orders")
+        self.assertContains(resp, "Accept")  # quick-action label for a pending order
+
+    def test_stat_card_pending_link_filters_order_list(self):
+        resp = self.client.get(reverse("admin:index"))
+        self.assertContains(resp, "status__exact=pending")
+
+    def test_advance_order_view_moves_status_and_stamps_timestamp(self):
+        resp = self.client.post(
+            reverse("admin:advance_order", args=[self.order.id]),
+            {"next": reverse("admin:index")},
+            follow=True,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.STATUS_CONFIRMED)
+        self.assertIsNotNone(self.order.confirmed_at)
+
+    def test_dashboard_stats_json_reflects_live_state(self):
+        resp = self.client.get(reverse("admin:dashboard_stats"))
+        data = resp.json()
+        self.assertEqual(data["cards"]["pending_orders"], 1)
+
+        self.client.post(
+            reverse("admin:advance_order", args=[self.order.id]),
+            {"next": reverse("admin:index")},
+        )
+
+        resp = self.client.get(reverse("admin:dashboard_stats"))
+        data = resp.json()
+        self.assertEqual(data["cards"]["pending_orders"], 0)
+        self.assertEqual(data["cards"]["preparing_orders"], 0)
+
+    def test_orders_changelist_has_quick_action_button(self):
+        resp = self.client.get(reverse("admin:orders_order_changelist"))
+        self.assertContains(resp, "Accept")
+
+    def test_customer_cannot_advance_order_status(self):
+        self.client.logout()
+        customer = User.objects.create_user("frank", password="pw12345!")
+        self.client.force_login(customer)
+        resp = self.client.post(
+            reverse("admin:advance_order", args=[self.order.id]),
+            {"next": reverse("admin:index")},
+        )
+        self.assertNotEqual(resp.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.STATUS_PENDING)

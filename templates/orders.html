@@ -8,7 +8,7 @@
     <div class="container">
         <span>Orders</span>
         <h1>My Orders</h1>
-        <p>View your previous orders and their status.</p>
+        <p>View your previous orders and track their status.</p>
     </div>
 </section>
 
@@ -16,34 +16,44 @@
     <div class="container">
 
         {% if orders %}
-
+            <div class="orders-list">
             {% for order in orders %}
-
                 <div class="order-card">
+                    <div class="order-card-head">
+                        <div>
+                            <h3>Order #{{ order.id }}</h3>
+                            <span class="order-date">{{ order.created_at|date:"d M Y, h:i A" }}</span>
+                        </div>
+                        <span class="order-status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                    </div>
 
-                    <h3>
-                        Order #{{ order.id }}
-                    </h3>
+                    <ul class="order-items-list">
+                        {% for item in order.items.all %}
+                        <li><span>{{ item.item_name }} × {{ item.quantity }}</span><span>₹{{ item.subtotal }}</span></li>
+                        {% endfor %}
+                    </ul>
 
-                    <p>
-                        Date:
-                        {{ order.created_at|date:"d M Y, h:i A" }}
-                    </p>
+                    <div class="order-card-total">
+                        <span>Total</span>
+                        <strong>₹{{ order.total_amount }}</strong>
+                    </div>
 
-                    <p>
-                        Total:
-                        ₹{{ order.total_amount }}
-                    </p>
-
-                    <p>
-                        Status:
-                        {{ order.status }}
-                    </p>
-
+                    {% if order.status != "cancelled" %}
+                    <div class="order-tracker">
+                        {% for step in order.progress_steps %}
+                        <div class="order-tracker-step {% if step.reached %}reached{% endif %}">
+                            <span class="order-tracker-dot"></span>
+                            <span class="order-tracker-label">{{ step.label }}</span>
+                            {% if step.timestamp %}<span class="order-tracker-time">{{ step.timestamp|date:"d M, h:i A" }}</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="order-cancelled-note">This order was cancelled{% if order.cancelled_at %} on {{ order.cancelled_at|date:"d M Y, h:i A" }}{% endif %}.</p>
+                    {% endif %}
                 </div>
-
             {% endfor %}
-
+            </div>
         {% else %}
 
             <div class="cart-empty">

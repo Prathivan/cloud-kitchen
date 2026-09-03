@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import Category, CustomerReview, MenuItem, RunningOffer
 
 
@@ -64,15 +64,42 @@ class MenuItemAdmin(admin.ModelAdmin):
 
 @admin.register(RunningOffer)
 class RunningOfferAdmin(admin.ModelAdmin):
-    list_display = ("title", "is_active", "display_order", "created_at")
+    list_display = ("title", "schedule_state", "is_active", "start_date", "end_date", "display_order", "created_at")
     list_filter = ("is_active",)
     search_fields = ("title", "description")
     list_editable = ("display_order",)
+    fields = ("title", "description", "image", "button_text", "button_link", "is_active", "start_date", "end_date", "display_order")
+
+    @admin.display(description="State")
+    def schedule_state(self, obj):
+        return obj.schedule_state
+
+
+def approve_reviews(modeladmin, request, queryset):
+    updated = queryset.update(is_active=True)
+    messages.success(request, f"{updated} review(s) approved and are now visible on the website.")
+approve_reviews.short_description = "Approve selected reviews (show on website)"
+
+
+def hide_reviews(modeladmin, request, queryset):
+    updated = queryset.update(is_active=False)
+    messages.success(request, f"{updated} review(s) hidden from the website.")
+hide_reviews.short_description = "Hide selected reviews (remove from website)"
 
 
 @admin.register(CustomerReview)
 class CustomerReviewAdmin(admin.ModelAdmin):
-    list_display = ("customer_name", "rating", "is_active", "display_order", "created_at")
+    list_display = ("customer_name", "rating", "review_preview", "status_label", "display_order", "created_at")
     list_filter = ("is_active", "rating")
     search_fields = ("customer_name", "review_text")
     list_editable = ("display_order",)
+    actions = [approve_reviews, hide_reviews]
+
+    @admin.display(description="Review")
+    def review_preview(self, obj):
+        text = obj.review_text or ""
+        return text if len(text) <= 60 else text[:57] + "…"
+
+    @admin.display(description="Status")
+    def status_label(self, obj):
+        return "Approved" if obj.is_active else "Hidden"

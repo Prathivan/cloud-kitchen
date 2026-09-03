@@ -22,6 +22,9 @@ from django.urls import include, path
 
 from accounts import views
 from menu import views as menu_views
+from config import admin_dashboard
+
+admin_dashboard.install()
 
 
 urlpatterns = [

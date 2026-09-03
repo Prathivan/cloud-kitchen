@@ -201,6 +201,14 @@ class RunningOffer(models.Model):
     button_text = models.CharField(max_length=40, blank=True)
     button_link = models.URLField(blank=True)
     is_active = models.BooleanField(default=True)
+    start_date = models.DateField(
+        null=True, blank=True,
+        help_text="Leave blank to make the offer visible immediately (subject to Active being on).",
+    )
+    end_date = models.DateField(
+        null=True, blank=True,
+        help_text="Leave blank for an offer with no expiry date.",
+    )
     display_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -209,6 +217,39 @@ class RunningOffer(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date must be on or after the start date."})
+
+    def is_currently_active(self, today=None):
+        """
+        True only when Active is on AND today falls within
+        [start_date, end_date] (either bound may be open-ended).
+        This is the single check every part of the app must use to
+        decide whether to show this offer -- see menu queryset filters.
+        """
+        today = today or timezone.localdate()
+        if not self.is_active:
+            return False
+        if self.start_date and today < self.start_date:
+            return False
+        if self.end_date and today > self.end_date:
+            return False
+        return True
+
+    @property
+    def schedule_state(self):
+        """Human label for the admin list: Active / Scheduled / Expired / Inactive."""
+        if not self.is_active:
+            return "Inactive"
+        today = timezone.localdate()
+        if self.start_date and today < self.start_date:
+            return "Scheduled"
+        if self.end_date and today > self.end_date:
+            return "Expired"
+        return "Active"
 
 
 class CustomerReview(models.Model):

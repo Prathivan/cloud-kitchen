@@ -1,0 +1,154 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.bck-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin: 4px 0 24px;
+}
+.bck-stat-card {
+    background: #fff;
+    border: 1px solid #e5edf2;
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.bck-stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #52616b;
+}
+.bck-stat-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #24323d;
+}
+.bck-stat-pending .bck-stat-value { color: #f4a261; }
+.bck-stat-preparing .bck-stat-value { color: #1878ad; }
+.bck-stat-success .bck-stat-value { color: #2e9e5b; }
+.bck-stat-accent .bck-stat-value { color: #2b9ed8; }
+.bck-panel {
+    background: #fff;
+    border: 1px solid #e5edf2;
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 6px 18px rgba(36,50,61,.06);
+    margin-bottom: 26px;
+}
+.bck-panel h2 {
+    font-size: 15px;
+    margin: 0 0 12px;
+    color: #24323d;
+}
+.bck-panel-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.bck-panel-table th {
+    text-align: left;
+    color: #52616b;
+    font-weight: 700;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5edf2;
+}
+.bck-panel-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f2f6f8;
+    color: #24323d;
+}
+.bck-dashboard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 4px 0 20px;
+}
+.bck-quick-link {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #e5edf2;
+    color: #24323d;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.bck-quick-link:hover {
+    border-color: #2b9ed8;
+    color: #2b9ed8;
+}</style>
+{% endblock %}
+
+{% block content_title %}<h1>{{ title }}</h1>{% endblock %}
+
+{% block content %}
+{% if dashboard_stats %}
+<div class="bck-dashboard-actions">
+    <a href="{% url 'admin:reports' %}" class="bck-quick-link">📊 View Reports</a>
+    <a href="{% url 'admin:orders_order_changelist' %}" class="bck-quick-link">🧾 View Orders</a>
+    <a href="{% url 'admin:menu_menuitem_add' %}" class="bck-quick-link">+ Add Menu Item</a>
+    <a href="{% url 'admin:menu_runningoffer_add' %}" class="bck-quick-link">+ Create Offer</a>
+    <a href="{% url 'admin:menu_menuitem_changelist' %}?is_chef_special__exact=1" class="bck-quick-link">⭐ Chef Specials</a>
+    <a href="{% url 'admin:menu_menuitem_changelist' %}?is_popular__exact=1" class="bck-quick-link">🔥 Popular Dishes</a>
+</div>
+<div class="bck-dashboard-grid">
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Today's Orders</span>
+        <span class="bck-stat-value">{{ dashboard_stats.todays_orders }}</span>
+    </div>
+    <div class="bck-stat-card bck-stat-pending">
+        <span class="bck-stat-label">Pending</span>
+        <span class="bck-stat-value">{{ dashboard_stats.pending_orders }}</span>
+    </div>
+    <div class="bck-stat-card bck-stat-preparing">
+        <span class="bck-stat-label">Preparing</span>
+        <span class="bck-stat-value">{{ dashboard_stats.preparing_orders }}</span>
+    </div>
+    <div class="bck-stat-card bck-stat-success">
+        <span class="bck-stat-label">Delivered Today</span>
+        <span class="bck-stat-value">{{ dashboard_stats.delivered_orders }}</span>
+    </div>
+    <div class="bck-stat-card bck-stat-accent">
+        <span class="bck-stat-label">Today's Revenue</span>
+        <span class="bck-stat-value">₹{{ dashboard_stats.todays_revenue }}</span>
+    </div>
+    <div class="bck-stat-card">
+        <span class="bck-stat-label">Customers</span>
+        <span class="bck-stat-value">{{ dashboard_stats.total_customers }}</span>
+    </div>
+</div>
+
+{% if best_sellers %}
+<div class="bck-panel">
+    <h2>Best-Selling Items</h2>
+    <table class="bck-panel-table">
+        <thead>
+            <tr><th>#</th><th>Item</th><th>Units Sold</th><th>Revenue</th></tr>
+        </thead>
+        <tbody>
+            {% for row in best_sellers %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ row.item_name }}</td>
+                <td>{{ row.units_sold }}</td>
+                <td>₹{{ row.revenue }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endif %}
+
+{{ block.super }}
+{% endblock %}
