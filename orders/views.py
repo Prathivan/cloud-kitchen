@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from cart.models import CartItem
 from menu.models import MenuItem
@@ -53,8 +54,25 @@ def checkout(request):
 
     try:
         with transaction.atomic():
-            order = Order.objects.create(user=request.user, status=Order.STATUS_PENDING)
+            # Backend is the source of truth: re-derive the order type
+            # from the locked cart items themselves rather than trusting
+            # anything the client sent, and reject a mixed cart outright
+            # even though the cart UI already prevents building one.
+            preorder_item_ids = {ci.menu_item_id for ci in cart_items if ci.menu_item.is_preorder}
+            normal_item_ids = {ci.menu_item_id for ci in cart_items if not ci.menu_item.is_preorder}
+            if preorder_item_ids and normal_item_ids:
+                raise ValueError(
+                    "Your cart mixes normal and pre-order items, which isn't allowed. "
+                    "Please clear your cart and checkout each order type separately."
+                )
+            is_preorder_order = bool(preorder_item_ids)
+
+            order = Order.objects.create(
+                user=request.user, status=Order.STATUS_PENDING, is_preorder=is_preorder_order
+            )
             total_amount = Decimal("0.00")
+            order_placed_at = timezone.now()
+            max_preorder_hours = 0
 
             for cart_item in cart_items:
                 # Lock the menu item row for the duration of the
@@ -80,6 +98,17 @@ def checkout(request):
                             f"are left today."
                         )
 
+                if menu_item.is_preorder:
+                    if not menu_item.preorder_hours or menu_item.preorder_hours <= 0:
+                        raise ValueError(
+                            f'"{menu_item.name}" is missing a valid pre-order lead time. '
+                            f"Please contact support."
+                        )
+                    # If multiple pre-order items are in the same order with
+                    # different lead times, the order is only ready once
+                    # EVERY item is ready -- so use the longest one.
+                    max_preorder_hours = max(max_preorder_hours, menu_item.preorder_hours)
+
                 OrderItem.objects.create(
                     order=order,
                     menu_item=menu_item,
@@ -94,7 +123,19 @@ def checkout(request):
                 menu_item.register_confirmed_sale(cart_item.quantity)
 
             order.total_amount = total_amount
-            order.save(update_fields=["total_amount"])
+            update_fields = ["total_amount"]
+
+            if is_preorder_order:
+                # Snapshot the fulfillment time NOW, from the hours value
+                # each menu item had at the moment of purchase. This is
+                # deliberately never recalculated from the live MenuItem
+                # later -- if an admin changes preorder_hours afterwards,
+                # already-placed orders must keep the time the customer
+                # was originally promised.
+                order.preorder_datetime = order_placed_at + timezone.timedelta(hours=max_preorder_hours)
+                update_fields.append("preorder_datetime")
+
+            order.save(update_fields=update_fields)
 
             CartItem.objects.filter(
                 id__in=[ci.id for ci in cart_items]

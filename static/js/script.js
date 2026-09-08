@@ -4,7 +4,8 @@ document.addEventListener("DOMContentLoaded", function () {
   var links = document.querySelector(".nav-links");
   if (toggle && links) {
     toggle.addEventListener("click", function () {
-      links.classList.toggle("show");
+      var isOpen = links.classList.toggle("show");
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
     });
   }
 
@@ -75,6 +76,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
       postCartAction(form.getAttribute("action"), formData)
         .then(function (data) {
+          if (!data.ok && data.conflict) {
+            handleCartConflict(form, formData, data, function (retryData) {
+              renderCartControls(container, retryData);
+            });
+            return;
+          }
           renderCartControls(container, data);
         })
         .catch(function () {
@@ -85,6 +92,39 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
+// ============================================================
+// Normal-order / pre-order mixing conflict: the backend refuses to add
+// an item that would mix order types (see cart.views.add_to_cart), and
+// tells us so via {ok:false, conflict:true, error:"..."}. Ask the user
+// whether to clear their existing cart and switch order type; if they
+// agree, resubmit the exact same add request with force=1 so the
+// backend clears the cart and adds the item in one step.
+// ============================================================
+function handleCartConflict(form, formData, data, onResolved) {
+  showSiteModal(
+    data.error + " Clear your current cart and continue with this item?",
+    {
+      onOk: function () {
+        formData.set("force", "1");
+        postCartAction(form.getAttribute("action"), formData)
+          .then(function (retryData) {
+            if (retryData.ok) {
+              // Simplest way to guarantee every part of the page (cart
+              // badge, other menu cards' Add/Pre-Order controls, etc.)
+              // reflects the now-switched cart type consistently.
+              window.location.reload();
+            } else if (retryData.error) {
+              showSiteModal(retryData.error, { okOnly: true });
+            }
+          })
+          .catch(function () {
+            form.submit();
+          });
+      },
+    }
+  );
+}
 
 function postCartAction(url, formData) {
   return fetch(url, {
@@ -98,8 +138,18 @@ function postCartAction(url, formData) {
 
 function renderCartControls(container, data) {
   if (!data.ok) {
+    if (data.stale) {
+      // This container's Add/quantity form was built for a CartItem
+      // that no longer exists server-side (cart cleared elsewhere,
+      // normal/pre-order switch, another tab, etc). The database is
+      // the source of truth -- reload so every control on the page is
+      // rebuilt from the current cart state instead of continuing to
+      // post against a dead id.
+      window.location.reload();
+      return;
+    }
     if (data.error) {
-      window.alert(data.error);
+      showSiteModal(data.error, { okOnly: true });
     }
     return;
   }
@@ -122,10 +172,14 @@ function renderCartControls(container, data) {
       '<button type="submit" name="quantity" value="' + (data.quantity + 1) + '" class="qty-btn">+</button>' +
       '</form>';
   } else {
+    var isPreorder = container.getAttribute("data-is-preorder") === "1";
+    var addButtonHtml = isPreorder
+      ? '<button class="add-btn preorder-btn" type="submit">\uD83D\uDCC5 Pre-Order</button>'
+      : '<button class="add-btn" type="submit">+ Add</button>';
     container.innerHTML =
-      '<form action="' + addUrl + '" method="POST" class="cart-add-form">' +
+      '<form action="' + addUrl + '" method="POST" class="cart-add-form' + (isPreorder ? ' preorder-add-form' : '') + '">' +
       '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrfValue + '">' +
-      '<button class="add-btn" type="submit">+ Add</button>' +
+      addButtonHtml +
       '</form>';
   }
 }
@@ -158,8 +212,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function applyCartRowUpdate(form, data) {
   if (!data.ok) {
+    if (data.stale) {
+      window.location.reload();
+      return;
+    }
     if (data.error) {
-      window.alert(data.error);
+      showSiteModal(data.error, { okOnly: true });
     }
     return;
   }
@@ -186,6 +244,16 @@ function applyCartRowUpdate(form, data) {
   });
 
   recalcCartSummary();
+}
+
+function formatMoney(value) {
+  // Matches Django's {{ value|floatformat:2|intcomma }} used server-side
+  // for the same figures, so the live JS-recalculated summary never
+  // looks different in formatting from the page's initial render.
+  var fixed = (Math.round((value + Number.EPSILON) * 100) / 100).toFixed(2);
+  var parts = fixed.split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return parts.join(".");
 }
 
 function recalcCartSummary() {
@@ -215,9 +283,9 @@ function recalcCartSummary() {
   var totalEl = document.querySelector("[data-total]");
   var checkoutBtn = document.querySelector("[data-checkout-btn]");
 
-  if (subtotalEl) subtotalEl.textContent = "\u20b9" + subtotal.toFixed(0);
-  if (deliveryEl) deliveryEl.textContent = "\u20b9" + deliveryFee.toFixed(0);
-  if (totalEl) totalEl.textContent = "\u20b9" + total.toFixed(0);
+  if (subtotalEl) subtotalEl.textContent = "\u20b9" + formatMoney(subtotal);
+  if (deliveryEl) deliveryEl.textContent = "\u20b9" + formatMoney(deliveryFee);
+  if (totalEl) totalEl.textContent = "\u20b9" + formatMoney(total);
   if (checkoutBtn) checkoutBtn.disabled = rows.length === 0;
 
   if (rows.length === 0 && !tbody.querySelector(".empty-cart")) {
@@ -409,5 +477,78 @@ document.addEventListener("DOMContentLoaded", function () {
         submitBtn.textContent = "Please wait…";
       }
     });
+  });
+});
+
+// ============================================================
+// Reusable styled modal (replaces window.confirm/alert), used for
+// things like the normal-vs-pre-order cart conflict prompt.
+// ============================================================
+function showSiteModal(message, options) {
+  options = options || {};
+  var overlay = document.getElementById("siteModalOverlay");
+  var messageEl = document.getElementById("siteModalMessage");
+  var okBtn = document.getElementById("siteModalOk");
+  var cancelBtn = document.getElementById("siteModalCancel");
+  if (!overlay || !messageEl || !okBtn || !cancelBtn) {
+    // Fallback if the modal markup isn't present for some reason.
+    if (window.confirm(message) && options.onOk) options.onOk();
+    return;
+  }
+
+  messageEl.textContent = message;
+  cancelBtn.style.display = options.okOnly ? "none" : "";
+  overlay.hidden = false;
+
+  function cleanup() {
+    overlay.hidden = true;
+    okBtn.removeEventListener("click", onOk);
+    cancelBtn.removeEventListener("click", onCancel);
+    overlay.removeEventListener("click", onOverlayClick);
+  }
+  function onOk() {
+    cleanup();
+    if (options.onOk) options.onOk();
+  }
+  function onCancel() {
+    cleanup();
+    if (options.onCancel) options.onCancel();
+  }
+  function onOverlayClick(event) {
+    if (event.target === overlay) onCancel();
+  }
+
+  okBtn.addEventListener("click", onOk);
+  cancelBtn.addEventListener("click", onCancel);
+  overlay.addEventListener("click", onOverlayClick);
+}
+
+// ============================================================
+// "My Account" dropdown (desktop nav)
+// ============================================================
+document.addEventListener("DOMContentLoaded", function () {
+  var dropdown = document.getElementById("accountDropdown");
+  var toggleBtn = document.getElementById("accountDropdownToggle");
+  var menu = document.getElementById("accountDropdownMenu");
+  if (!dropdown || !toggleBtn || !menu) return;
+
+  function closeDropdown() {
+    dropdown.classList.remove("open");
+    toggleBtn.setAttribute("aria-expanded", "false");
+  }
+  function toggleDropdown() {
+    var isOpen = dropdown.classList.toggle("open");
+    toggleBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  toggleBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    toggleDropdown();
+  });
+  document.addEventListener("click", function (event) {
+    if (!dropdown.contains(event.target)) closeDropdown();
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeDropdown();
   });
 });

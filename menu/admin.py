@@ -24,6 +24,8 @@ class MenuItemAdmin(admin.ModelAdmin):
         "per_day_selling_units",
         "total_selling_units",
         "available_tracking",
+        "is_preorder",
+        "preorder_hours",
     )
     list_filter = (
         "category",
@@ -34,6 +36,7 @@ class MenuItemAdmin(admin.ModelAdmin):
         "is_available",
         "is_selling_unit_tracking",
         "available_tracking",
+        "is_preorder",
     )
     search_fields = ("name", "description")
     readonly_fields = ("total_selling_units", "selling_units_date")
@@ -58,6 +61,11 @@ class MenuItemAdmin(admin.ModelAdmin):
                 "total_selling_units",
                 "selling_units_date",
             ),
+        }),
+        ("Pre-Order", {
+            "fields": ("is_preorder", "preorder_hours"),
+            "description": "When Pre-Order is enabled, customers pre-book this item instead of ordering it "
+                           "for immediate fulfillment. Pre-Order Hours is only used while Pre-Order is on.",
         }),
     )
 

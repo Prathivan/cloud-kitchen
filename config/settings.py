@@ -10,11 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Loads variables from a ".env" file at the project root (same folder as
+# manage.py) into os.environ, if that file exists. Nothing happens if it
+# doesn't -- so this is safe to leave in for every environment. Real
+# secrets (DB password, SECRET_KEY, etc.) belong in .env, which is not
+# committed to version control; see .env.example for the variables this
+# project reads.
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -22,13 +33,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-)_3l##7u&vua98t^v715h9wlb_glor#o#z0t(58$=b0(4wl%93"
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-)_3l##7u&vua98t^v715h9wlb_glor#o#z0t(58$=b0(4wl%93"
+)
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 
 # =========================
@@ -42,6 +55,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
+
+    "django_apscheduler",
 
     "accounts",
     "menu",
@@ -108,13 +124,32 @@ WSGI_APPLICATION = "config.wsgi.application"
 # =========================
 # DATABASE
 # =========================
+#
+# Defaults to SQLite for now (works immediately, no server to install
+# or configure) so pre-order/other work isn't blocked on a Postgres
+# setup. Switching to Postgres later is a one-line change: set
+# DB_ENGINE=postgres in .env (see .env.example) along with DB_NAME/
+# DB_USER/DB_PASSWORD/DB_HOST/DB_PORT -- no code changes needed.
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if os.environ.get("DB_ENGINE", "sqlite") == "postgres":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "butterfly_cloud_kitchen"),
+            "USER": os.environ.get("DB_USER", "butterfly"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # =========================

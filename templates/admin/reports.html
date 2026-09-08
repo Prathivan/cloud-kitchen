@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
+{% load i18n humanize %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -74,11 +74,11 @@
     </div>
     <div class="bck-stat-card">
         <span class="bck-stat-label">Total Sales</span>
-        <span class="bck-stat-value">₹{{ total_sales }}</span>
+        <span class="bck-stat-value">₹{{ total_sales|intcomma }}</span>
     </div>
     <div class="bck-stat-card">
         <span class="bck-stat-label">Avg Order Value</span>
-        <span class="bck-stat-value">₹{{ average_order_value|floatformat:0 }}</span>
+        <span class="bck-stat-value">₹{{ average_order_value|intcomma }}</span>
     </div>
 </div>
 
@@ -93,7 +93,7 @@
                 <td>{{ forloop.counter }}</td>
                 <td>{{ row.item_name }}</td>
                 <td>{{ row.units_sold }}</td>
-                <td>₹{{ row.revenue }}</td>
+                <td>₹{{ row.revenue|intcomma }}</td>
             </tr>
             {% endfor %}
         </tbody>

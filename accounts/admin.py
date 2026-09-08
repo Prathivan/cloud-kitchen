@@ -50,8 +50,19 @@ class CustomerProfileAdmin(admin.ModelAdmin):
 
     @admin.display(description="Total Spent", ordering="_total_spent")
     def total_spent(self, obj):
+        from decimal import ROUND_HALF_UP, Decimal
+
+        from django.contrib.humanize.templatetags.humanize import intcomma
+
         amount = getattr(obj, "_total_spent", None)
-        return f"₹{amount}" if amount else "₹0"
+        if not amount:
+            return "₹0.00"
+        # Same SQLite Sum()-on-DecimalField precision issue fixed
+        # elsewhere for the dashboard (see config/admin_dashboard.py's
+        # _money()) -- quantize before display so this never shows a
+        # long float-noise tail.
+        clean = Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"₹{intcomma(clean)}"
 
     @admin.display(description="Recent Orders")
     def recent_orders(self, obj):

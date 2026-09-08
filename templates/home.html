@@ -73,7 +73,7 @@
                                     {% if item.description %}<p>{{ item.description|truncatechars:90 }}</p>{% else %}<p>Freshly prepared with homemade goodness.</p>{% endif %}
                                     <div class="home-chef-bottom">
                                         <div class="price-block">{% include "partials/price.html" %}</div>
-                                        <a href="{% url 'menu' %}" class="home-order-link">Order <span>→</span></a>
+                                        {% include "partials/cart_controls.html" %}
                                     </div>
                                 </div>
                             </article>

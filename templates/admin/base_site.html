@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Butterfly Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name" class="bck-branding">
+    <a href="{% url 'admin:index' %}">
+        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="" class="bck-branding-logo">
+        {{ site_header|default:"Butterfly Admin" }}
+    </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/butterfly_admin.css' %}">
+{% endblock %}

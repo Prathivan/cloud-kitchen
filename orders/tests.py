@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from django.db import connection
+from django.utils import timezone
 
 from cart.models import CartItem
 from menu.models import Category, MenuItem
@@ -261,3 +262,173 @@ class DashboardQuickActionTests(TestCase):
         self.assertNotEqual(resp.status_code, 200)
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.STATUS_PENDING)
+
+
+class RevenueRoundingTests(TestCase):
+    def test_dashboard_revenue_never_shows_long_decimal_tail(self):
+        from decimal import Decimal
+
+        staff = User.objects.create_superuser("moneyadmin", "moneyadmin@example.com", "AdminPW12345")
+        self.client.login(username="moneyadmin", password="AdminPW12345")
+        customer = User.objects.create_user("moneycust", password="pw12345!")
+        Order.objects.create(user=customer, status=Order.STATUS_CONFIRMED, total_amount=Decimal("699.99"))
+        Order.objects.create(user=customer, status=Order.STATUS_CONFIRMED, total_amount=Decimal("1339.98"))
+        Order.objects.create(user=customer, status=Order.STATUS_READY, total_amount=Decimal("580.00"))
+
+        resp = self.client.get(reverse("admin:dashboard_stats"))
+        data = resp.json()
+        revenue_str = str(data["cards"]["todays_revenue"])
+        decimals = revenue_str.split(".")[-1] if "." in revenue_str else ""
+        self.assertLessEqual(len(decimals), 2)
+        self.assertEqual(revenue_str, "2619.97")
+
+    def test_best_sellers_revenue_accounts_for_quantity(self):
+        from decimal import Decimal
+
+        staff = User.objects.create_superuser("moneyadmin2", "moneyadmin2@example.com", "AdminPW12345")
+        self.client.login(username="moneyadmin2", password="AdminPW12345")
+        customer = User.objects.create_user("moneycust2", password="pw12345!")
+        order = Order.objects.create(user=customer, status=Order.STATUS_CONFIRMED, total_amount=Decimal("720.00"))
+        OrderItem.objects.create(order=order, item_name="Oreo Shake", price=Decimal("180.00"), quantity=4)
+
+        resp = self.client.get(reverse("admin:index"))
+        # 4 units at 180 each = 720, not a bare sum of unit prices (180).
+        self.assertContains(resp, "720.00")
+        self.assertNotContains(resp, ">180.00<")
+
+
+class QuickActionButtonRenderingTests(TestCase):
+    def test_quick_action_button_has_no_nested_form(self):
+        """
+        Regression test for the "Accept button does nothing" bug: the
+        button must use formaction/formmethod on the *existing*
+        changelist form, never a second nested <form> inside a table
+        cell (invalid HTML that browsers silently break).
+        """
+        staff = User.objects.create_superuser("nestedadmin", "nestedadmin@example.com", "AdminPW12345")
+        self.client.login(username="nestedadmin", password="AdminPW12345")
+        customer = User.objects.create_user("nestedcust", password="pw12345!")
+        Order.objects.create(user=customer, status=Order.STATUS_PENDING)
+
+        resp = self.client.get(reverse("admin:orders_order_changelist"))
+        body = resp.content.decode()
+        self.assertEqual(body.count('id="changelist-form"'), 1)
+        self.assertNotIn('<form method="post" action="/admin/orders/', body)
+        self.assertIn("formaction=", body)
+
+
+class PreorderCheckoutTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("preorder_alice", password="pw12345!")
+        category = Category.objects.create(name="Cakes")
+        self.normal_item = MenuItem.objects.create(
+            category=category, name="Brownie", price="120.00", is_available=True,
+        )
+        self.preorder_item_24h = MenuItem.objects.create(
+            category=category, name="Birthday Cake", price="900.00",
+            is_available=True, is_preorder=True, preorder_hours=24,
+        )
+        self.preorder_item_48h = MenuItem.objects.create(
+            category=category, name="Wedding Cake", price="2500.00",
+            is_available=True, is_preorder=True, preorder_hours=48,
+        )
+        self.client.force_login(self.user)
+
+    def test_preorder_checkout_calculates_and_snapshots_datetime(self):
+        CartItem.objects.create(user=self.user, menu_item=self.preorder_item_24h, quantity=1)
+        self.client.post(reverse("checkout"))
+
+        order = Order.objects.get(user=self.user)
+        self.assertTrue(order.is_preorder)
+        self.assertIsNotNone(order.preorder_datetime)
+
+        expected = order.created_at + timezone.timedelta(hours=24)
+        self.assertAlmostEqual(
+            order.preorder_datetime.timestamp(), expected.timestamp(), delta=5
+        )
+
+        # Changing the menu item's hours afterwards must NOT retroactively
+        # change an already-placed order's snapshot.
+        self.preorder_item_24h.preorder_hours = 72
+        self.preorder_item_24h.save()
+        order.refresh_from_db()
+        self.assertAlmostEqual(
+            order.preorder_datetime.timestamp(), expected.timestamp(), delta=5
+        )
+
+    def test_multiple_preorder_items_use_the_longest_lead_time(self):
+        CartItem.objects.create(user=self.user, menu_item=self.preorder_item_24h, quantity=1)
+        CartItem.objects.create(user=self.user, menu_item=self.preorder_item_48h, quantity=1)
+        self.client.post(reverse("checkout"))
+
+        order = Order.objects.get(user=self.user)
+        expected = order.created_at + timezone.timedelta(hours=48)
+        self.assertAlmostEqual(
+            order.preorder_datetime.timestamp(), expected.timestamp(), delta=5
+        )
+
+    def test_normal_checkout_has_no_preorder_datetime(self):
+        CartItem.objects.create(user=self.user, menu_item=self.normal_item, quantity=2)
+        self.client.post(reverse("checkout"))
+
+        order = Order.objects.get(user=self.user)
+        self.assertFalse(order.is_preorder)
+        self.assertIsNone(order.preorder_datetime)
+
+    def test_backend_rejects_a_mixed_cart_even_if_one_somehow_got_created(self):
+        # The cart UI (cart.views.add_to_cart) already prevents building a
+        # mixed cart, but checkout must independently refuse to process
+        # one too, since the backend is the source of truth.
+        CartItem.objects.create(user=self.user, menu_item=self.normal_item, quantity=1)
+        CartItem.objects.create(user=self.user, menu_item=self.preorder_item_24h, quantity=1)
+
+        self.client.post(reverse("checkout"))
+
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+        self.assertEqual(CartItem.objects.filter(user=self.user).count(), 2)
+
+
+class PreorderReminderTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("preorder_bob", password="pw12345!")
+
+    def _make_preorder(self, hours_from_now, reminder_sent=False):
+        order = Order.objects.create(
+            user=self.user,
+            status=Order.STATUS_CONFIRMED,
+            is_preorder=True,
+            preorder_datetime=timezone.now() + timezone.timedelta(hours=hours_from_now),
+            preorder_reminder_sent=reminder_sent,
+        )
+        return order
+
+    def test_reminder_created_when_due_within_an_hour(self):
+        from orders.models import AdminNotification
+        from orders.reminders import send_due_preorder_reminders
+
+        order = self._make_preorder(hours_from_now=0.5)
+        created = send_due_preorder_reminders()
+
+        self.assertEqual(created, 1)
+        order.refresh_from_db()
+        self.assertTrue(order.preorder_reminder_sent)
+        self.assertEqual(
+            AdminNotification.objects.filter(order=order).count(), 1
+        )
+
+    def test_no_reminder_when_more_than_an_hour_away(self):
+        from orders.reminders import send_due_preorder_reminders
+
+        self._make_preorder(hours_from_now=5)
+        created = send_due_preorder_reminders()
+
+        self.assertEqual(created, 0)
+
+    def test_reminder_is_not_duplicated_on_a_second_run(self):
+        from orders.reminders import send_due_preorder_reminders
+
+        self._make_preorder(hours_from_now=0.5)
+        send_due_preorder_reminders()
+        created_again = send_due_preorder_reminders()
+
+        self.assertEqual(created_again, 0)

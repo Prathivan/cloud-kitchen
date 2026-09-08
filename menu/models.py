@@ -70,6 +70,25 @@ class MenuItem(models.Model):
     is_available_from = models.TimeField(null=True, blank=True)
     is_available_till = models.TimeField(null=True, blank=True)
 
+    # ------------------------------------------------------------------
+    # Pre-order
+    # ------------------------------------------------------------------
+    # When enabled, customers can't just "Add" this item for immediate
+    # fulfillment -- they pre-book it, and preorder_hours (below) is used
+    # to work out when it will be ready. See Order.preorder_datetime for
+    # how that gets calculated and snapshotted at checkout time.
+    is_preorder = models.BooleanField(
+        default=False,
+        verbose_name="Pre-Order",
+        help_text="If enabled, customers pre-book this item instead of ordering it for immediate fulfillment.",
+    )
+    preorder_hours = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Pre-Order Hours",
+        help_text="Hours of notice required before this item can be fulfilled, e.g. 24. Only used when Pre-Order is enabled.",
+    )
+
     def __str__(self):
         return self.name
 
@@ -90,6 +109,16 @@ class MenuItem(models.Model):
             if self.price is not None and self.offer_price >= self.price:
                 raise ValidationError(
                     {"offer_price": "Offer price must be less than the original price."}
+                )
+
+        if self.is_preorder:
+            if self.preorder_hours is None:
+                raise ValidationError(
+                    {"preorder_hours": "Set the number of pre-order hours, or turn Pre-Order off."}
+                )
+            if self.preorder_hours <= 0:
+                raise ValidationError(
+                    {"preorder_hours": "Pre-order hours must be a positive number."}
                 )
 
     @property
@@ -175,6 +204,18 @@ class MenuItem(models.Model):
             return True
         current_time = at or timezone.localtime().time()
         return self.is_available_from <= current_time <= self.is_available_till
+
+    # ------------------------------------------------------------------
+    # Pre-order
+    # ------------------------------------------------------------------
+    @property
+    def preorder_label(self):
+        """Dynamically generated customer-facing pre-order copy, e.g. 'Available after 24 hours'."""
+        if not self.is_preorder or not self.preorder_hours:
+            return ""
+        hours = self.preorder_hours
+        unit = "hour" if hours == 1 else "hours"
+        return f"Available after {hours} {unit}"
 
     # ------------------------------------------------------------------
     # Combined availability

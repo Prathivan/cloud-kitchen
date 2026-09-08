@@ -10,6 +10,26 @@
     --danger: #e2574c;
     --success: #2e9e5b;
     --shadow: 0 10px 30px rgba(36, 50, 61, 0.08);
+
+    /* Butterfly-inspired pastel accents -- used sparingly as tints
+       behind sections/badges, never as large solid blocks, so the
+       interface stays calm rather than "rainbow". */
+    --lavender: #efeaff;
+    --lavender-deep: #cabdf5;
+    --sky: #e7f6fd;
+    --mint: #e5f8f0;
+    --pink-soft: #fdecf4;
+
+    /* Glassmorphism tokens -- reserved for featured surfaces only
+       (hero card, promoted specials, account/profile panel, modals). */
+    --glass-bg: rgba(255, 255, 255, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.55);
+    --glass-shadow: 0 20px 60px rgba(43, 158, 216, 0.16);
+    --glass-blur: 18px;
+
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
 }
 
 /* =========================
@@ -26,6 +46,36 @@ html,
 body {
     max-width: 100%;
     overflow-x: hidden;
+}
+
+/* Keyboard accessibility: visible on focus only, jumps past the navbar. */
+.skip-link {
+    position: absolute;
+    top: -60px;
+    left: 12px;
+    z-index: 1000;
+    background: var(--primary-dark);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 13px;
+    transition: top .15s ease;
+}
+
+.skip-link:focus {
+    top: 12px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 html {
@@ -145,6 +195,18 @@ ul {
     gap: 12px;
 }
 
+/* Groups Cart/Login + the hamburger toggle together so they always sit
+   flush against each other on mobile, regardless of how justify-content
+   distributes space between this group and the logo. Previously the
+   toggle was a separate sibling of .nav-actions, and relying on an auto
+   margin to close the gap between two space-between siblings turned out
+   to be fragile -- this wrapper makes their spacing unambiguous. */
+.nav-right-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
 .cart-btn,
 .login-btn {
     padding: 10px 16px;
@@ -173,6 +235,141 @@ ul {
     background: var(--primary-dark);
 }
 
+/* My Account dropdown */
+
+.account-dropdown {
+    position: relative;
+}
+
+.account-dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.account-dropdown-caret {
+    font-size: 11px;
+    transition: transform 0.2s ease;
+}
+
+.account-dropdown.open .account-dropdown-caret {
+    transform: rotate(180deg);
+}
+
+.account-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    min-width: 180px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(36, 50, 61, 0.14);
+    padding: 8px;
+    z-index: 60;
+}
+
+.account-dropdown.open .account-dropdown-menu {
+    display: block;
+}
+
+.account-dropdown-menu a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.account-dropdown-menu a:hover {
+    background: var(--light);
+    color: var(--primary-dark);
+}
+
+.account-dropdown-menu a.account-dropdown-logout {
+    color: var(--danger);
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+    padding-top: 12px;
+}
+
+.account-dropdown-menu a.account-dropdown-logout:hover {
+    background: #fdeceb;
+}
+
+/* Reusable styled modal (replaces window.confirm/alert) */
+
+.site-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 32, 39, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.site-modal-overlay[hidden] {
+    display: none;
+}
+
+.site-modal {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 26px 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(36, 50, 61, 0.25);
+}
+
+.site-modal-message {
+    font-size: 14.5px;
+    color: var(--dark);
+    line-height: 1.5;
+    margin-bottom: 20px;
+    white-space: pre-line;
+}
+
+.site-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.site-modal-btn {
+    border: 0;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.site-modal-cancel {
+    background: var(--light);
+    color: var(--text);
+}
+
+.site-modal-cancel:hover {
+    background: var(--border);
+}
+
+.site-modal-ok {
+    background: var(--primary);
+    color: var(--white);
+}
+
+.site-modal-ok:hover {
+    background: var(--primary-dark);
+}
+
 .cart-count {
     position: absolute;
     top: -6px;
@@ -189,6 +386,10 @@ ul {
 }
 
 /* Mobile Menu */
+
+.nav-links-mobile-only {
+    display: none;
+}
 
 .nav-toggle {
     display: none;
@@ -504,6 +705,14 @@ ul {
    ACCOUNT PAGE (profile + orders together)
    ========================= */
 
+.account-section {
+    background:
+        radial-gradient(circle at 12% 8%, var(--lavender), transparent 40%),
+        radial-gradient(circle at 92% 15%, var(--sky), transparent 38%),
+        radial-gradient(circle at 50% 100%, var(--mint), transparent 45%),
+        var(--light);
+}
+
 .account-layout {
     display: grid;
     grid-template-columns: 380px 1fr;
@@ -511,16 +720,78 @@ ul {
     gap: 30px;
 }
 
-.account-profile-col { position: sticky; top: 100px; }
+/* CSS Grid items default to min-width:auto -- they won't shrink below
+   their content's intrinsic width. The order tracker inside the right
+   column has several non-shrinking steps that are wider than a narrow
+   phone screen; without min-width:0 here, that pushed this whole grid
+   column (and therefore the page) into horizontal overflow instead of
+   just scrolling the tracker itself. Same root cause on both columns,
+   since form inputs can also refuse to shrink below a plain-text
+   value's rendered width. */
+.account-profile-col { position: sticky; top: 100px; min-width: 0; }
+.account-orders-col { min-width: 0; }
 
 .account-profile-card {
-    box-shadow: var(--shadow);
+    box-shadow: var(--glass-shadow);
     margin: 0;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+}
+
+/* Inputs need solid, high-contrast backgrounds regardless of the
+   glass card behind them -- glass on the card, not on form fields. */
+.account-profile-card .form-group input {
+    background: var(--white);
 }
 
 .orders-list-compact {
     max-width: none;
     margin: 0;
+}
+
+/* Read-only single-card profile page (account.html) */
+.account-layout-single {
+    display: flex;
+    justify-content: center;
+}
+
+.account-layout-single .account-profile-card {
+    width: 100%;
+    max-width: 460px;
+}
+
+.profile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-field:last-of-type {
+    border-bottom: 0;
+}
+
+.profile-field-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text);
+}
+
+.profile-field-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.account-orders-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
 }
 
 @media (max-width: 900px) {
@@ -625,6 +896,15 @@ ul {
     padding: 10px 14px;
 }
 
+.order-preorder-note {
+    font-size: 13px;
+    color: #8a5424;
+    background: #fdf3e6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+}
+
 /* Horizontal progress tracker: a line of dots connected by a bar that
    fills in as reached; the last-reached dot is the current stage. */
 .order-tracker {
@@ -704,6 +984,27 @@ ul {
     .order-tracker { justify-content: flex-start; }
     .order-tracker-step { min-width: 76px; }
     .order-card { padding: 20px 18px; }
+
+    /* .order-status-badge has flex:0 0 auto (never shrinks) and the
+       title/date block next to it doesn't shrink by default either --
+       together they were wider than a narrow phone screen, and with
+       overflow-x:hidden on <body> the excess was simply clipped
+       (the badge text and the total amount got cut off mid-word).
+       Stacking these rows instead of forcing them side-by-side fixes
+       it without touching the badge/amount styling itself. */
+    .order-card-head {
+        flex-wrap: wrap;
+    }
+    .order-card-head > div {
+        min-width: 0;
+        flex: 1 1 100%;
+    }
+    .order-status-badge {
+        margin-top: 2px;
+    }
+    .order-card-total {
+        flex-wrap: wrap;
+    }
 }
 
 .section-heading {
@@ -918,6 +1219,36 @@ ul {
 .add-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
+}
+
+.add-btn.preorder-btn {
+    background: var(--accent);
+}
+
+.add-btn.preorder-btn:hover {
+    background: #dd8a45;
+}
+
+.preorder-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.preorder-hint-tag {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #fdf1e4;
+    color: #b5651d;
+    font-weight: 800;
+    font-size: 10.5px;
+    letter-spacing: .2px;
+    white-space: nowrap;
 }
 
 /* =========================
@@ -1766,6 +2097,10 @@ offer-slider-section {
     margin-bottom: 7px;
 }
 
+.required-mark {
+    color: var(--danger);
+}
+
 .form-group input,
 .form-group select,
 .form-group textarea {
@@ -2397,6 +2732,42 @@ offer-slider-section {
     transform: translateY(-1px);
 }
 
+.clear-cart-form {
+    margin-top: 8px;
+}
+
+.clear-cart-btn {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    padding: 11px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.clear-cart-btn:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.preorder-banner {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fdf3e6;
+    border: 1px solid #f4d9b3;
+    color: #8a5424;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    margin-bottom: 16px;
+}
+
 .secure-note {
     text-align: center;
     font-size: 11px;
@@ -2592,6 +2963,22 @@ offer-slider-section {
         border-top: 1px solid var(--border);
         box-shadow: var(--shadow);
         gap: 18px;
+    }
+
+    .nav-links-mobile-only {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        width: 100%;
+        margin-top: 6px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+    }
+
+    .nav-links-mobile-only a {
+        font-weight: 800;
+        color: var(--primary);
     }
 
     .nav-toggle {
@@ -2792,6 +3179,35 @@ offer-slider-section {
     .values-grid,
     .team-grid {
         grid-template-columns: 1fr;
+    }
+
+    /* Footer: center each stacked section on mobile instead of leaving
+       everything left-aligned under the full-width logo block, which
+       read as uneven/misaligned once the columns collapsed to one. */
+    .footer-grid {
+        text-align: center;
+        gap: 32px;
+    }
+
+    .footer-brand {
+        align-items: center;
+    }
+
+    .footer-logo {
+        justify-content: center;
+    }
+
+    .footer-logo-text {
+        align-items: center;
+    }
+
+    .footer p {
+        max-width: none;
+        margin: 0 auto;
+    }
+
+    .footer a {
+        display: inline-block;
     }
 
     /* Food Cards */
@@ -3320,11 +3736,13 @@ offer-slider-section {
 
 .home-feature-card {
     position: relative;
-    background: rgba(255,255,255,.92);
-    border: 1px solid rgba(229,237,242,.95);
-    border-radius: 26px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 22px 55px rgba(36,50,61,.13);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
 }
 
 .home-feature-topline {

@@ -11,12 +11,11 @@ from .models import CustomerProfile
 
 
 def home(request):
-    # Chef Special is now a compact promotional poster in the hero (no
-    # Add-to-cart controls there), so it doesn't need cart-state lookups.
-    chef_special_items = list(
+    chef_special_items = attach_cart_state(
         MenuItem.objects.select_related("category").filter(
             is_chef_special=True, is_available=True
-        )
+        ),
+        request.user,
     )
     popular_items = attach_cart_state(
         MenuItem.objects.select_related("category").filter(
@@ -126,10 +125,13 @@ def logout_view(request):
 @login_required
 def account_view(request):
     """
-    A customer's own profile page. Always operates on request.user's own
-    CustomerProfile — there is no way to pass in a different user id, so
-    a logged-in customer can never view or edit another customer's data
-    through this view.
+    A customer's own profile page: Full Name / Mobile Number / Email,
+    editable, with no order information on this page -- that lives at
+    /my-orders/ (orders.views.my_orders) instead.
+
+    Always operates on request.user's own CustomerProfile -- there is
+    no way to pass in a different user id, so a logged-in customer can
+    never view or edit another customer's data through this view.
     """
     profile, _created = CustomerProfile.objects.get_or_create(
         user=request.user,
@@ -173,13 +175,7 @@ def account_view(request):
             },
         )
 
-    orders = (
-        request.user.orders
-        .prefetch_related("items")
-        .order_by("-created_at")
-    )
-
-    return render(request, "account.html", {"form": form, "profile": profile, "orders": orders})
+    return render(request, "account.html", {"form": form, "profile": profile})
 
 
 def cart(request):

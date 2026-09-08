@@ -1,16 +1,16 @@
 {% if todays_orders %}
 {% for order in todays_orders %}
 <tr>
-    <td><a href="{% url 'admin:orders_order_change' order.id %}">#ORD{{ order.id|stringformat:"05d" }}</a></td>
-    <td>
+    <td data-label="Order ID"><a href="{% url 'admin:orders_order_change' order.id %}">#ORD{{ order.id|stringformat:"05d" }}</a></td>
+    <td data-label="Customer">
         {{ order.user.customer_profile.full_name|default:order.user.username }}<br>
         <span class="bck-muted">{{ order.user.customer_profile.mobile_number }}</span>
     </td>
-    <td>{{ order.item_total }} item{{ order.item_total|pluralize }}</td>
-    <td>₹{{ order.total_amount }}</td>
-    <td><span class="bck-badge bck-badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
-    <td>{{ order.created_at|date:"h:i A" }}</td>
-    <td class="bck-actions-cell">
+    <td data-label="Items">{{ order.item_total }} item{{ order.item_total|pluralize }}</td>
+    <td data-label="Amount">₹{{ order.total_amount }}</td>
+    <td data-label="Status"><span class="bck-badge bck-badge-{{ order.status }}">{{ order.get_status_display }}</span></td>
+    <td data-label="Time">{{ order.created_at|date:"h:i A" }}</td>
+    <td data-label="Action" class="bck-actions-cell">
         <a href="{% url 'admin:orders_order_change' order.id %}" class="bck-icon-btn" title="View">👁️</a>
         {% if order.next_status %}
         <form method="post" action="{% url 'admin:advance_order' order.id %}" class="bck-inline-form">
