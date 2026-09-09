@@ -43,6 +43,22 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
+# Needed for any host behind a reverse proxy that terminates HTTPS for
+# you (Render, Railway, Heroku, etc.) -- without this, Django can't
+# tell the original request was HTTPS (it only sees plain HTTP from
+# the proxy), which breaks CSRF validation and secure-cookie behavior
+# in confusing ways. Safe to leave in for local development too, since
+# runserver doesn't set this header and DEBUG mode doesn't require it.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Add your deployed domain(s) here once you have one, e.g.
+# CSRF_TRUSTED_ORIGINS=https://butterfly-cloud-kitchen.onrender.com
+# (comma-separated for more than one, same pattern as ALLOWED_HOSTS
+# above). Required by Django whenever a form is submitted over HTTPS
+# to a host not already implied by ALLOWED_HOSTS + the request's own
+# origin -- which is exactly the Render setup.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+
 
 # =========================
 # APPLICATION DEFINITION
@@ -72,6 +88,12 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+
+    # Serves collected static files directly from the Django app in
+    # production (see STORAGES below) -- must stay directly after
+    # SecurityMiddleware, per WhiteNoise's own setup instructions.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
 
@@ -194,6 +216,39 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# Required for `collectstatic` (Render/most hosts run this during
+# build) -- this is where collectstatic copies every static file to,
+# separate from STATICFILES_DIRS above (which is where your SOURCE
+# static files live during development). Not needed for local
+# `runserver`, which serves static files itself without collectstatic.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise lets the Django app itself serve those collected static
+# files efficiently in production, with compression + far-future
+# cache headers -- without this, collectstatic would succeed but
+# CSS/JS/images would still 404 once deployed, since Render doesn't
+# run a separate web server (nginx, etc.) in front of the app for you.
+#
+# The manifest-based storage (used when DEBUG=False) requires
+# `collectstatic` to have already run -- it looks up each file's
+# hashed name from a manifest it generates, so it must NOT be used
+# during local development or in tests, where collectstatic is
+# rarely run first and every {% static %} tag would otherwise raise
+# "Missing staticfiles manifest entry". Plain storage in DEBUG mode
+# resolves static files directly instead, no manifest needed.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
 
 
 # =========================
