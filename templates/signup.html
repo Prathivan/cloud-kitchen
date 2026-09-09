@@ -24,57 +24,88 @@
                     <p class="field-error" style="text-align:center; margin-bottom:14px;">{{ form.non_field_errors|striptags }}</p>
                 {% endif %}
 
-                <form action="{% url 'signup' %}" method="post" class="auth-form">
+                <form action="{% url 'signup' %}" method="post" class="auth-form" id="signup-form"
+                      data-send-otp-url="{% url 'send_otp' %}" data-verify-otp-url="{% url 'verify_otp' %}"
+                      data-verified-mobile="{{ verified_mobile|default:'' }}">
                     {% csrf_token %}
 
-                    <div class="form-group">
-                        <label for="id_full_name">Full Name</label>
-                        {{ form.full_name }}
-                        {% if form.full_name.errors %}
-                            <span class="field-error">{{ form.full_name.errors|striptags }}</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="form-group">
-                        <label for="id_mobile_number">Mobile Number <span class="required-mark">*</span></label>
-                        {{ form.mobile_number }}
+                    <!-- STEP 1: enter mobile number + choose channel, request a code -->
+                    <div class="form-group" id="otp-step-request">
+                        <label for="otp-mobile-input">Mobile Number <span class="required-mark">*</span></label>
+                        <input type="text" id="otp-mobile-input" placeholder="e.g. +1 555 123 4567" autocomplete="tel"
+                               value="{{ form.mobile_number.value|default:'' }}">
+                        <div class="otp-channel-choice">
+                            <label><input type="radio" name="otp_channel" value="sms" checked> SMS</label>
+                            <label><input type="radio" name="otp_channel" value="whatsapp"> WhatsApp</label>
+                        </div>
+                        <button type="button" class="form-submit" id="otp-send-btn">Send Verification Code</button>
+                        <span class="field-error" id="otp-request-error"></span>
                         {% if form.mobile_number.errors %}
                             <span class="field-error">{{ form.mobile_number.errors|striptags }}</span>
                         {% endif %}
                     </div>
 
-                    <div class="form-group">
-                        <label for="id_email">Email Address <span class="required-mark">*</span></label>
-                        {{ form.email }}
-                        {% if form.email.errors %}
-                            <span class="field-error">{{ form.email.errors|striptags }}</span>
-                        {% endif %}
+                    <!-- STEP 2: enter the code that was sent -->
+                    <div class="form-group" id="otp-step-verify" style="display:none;">
+                        <label for="otp-code-input">Enter Verification Code</label>
+                        <p class="otp-sent-note" id="otp-sent-note"></p>
+                        <p class="otp-debug-code" id="otp-debug-code" style="display:none;"></p>
+                        <input type="text" id="otp-code-input" inputmode="numeric" maxlength="6" placeholder="6-digit code">
+                        <button type="button" class="form-submit" id="otp-verify-btn">Verify Code</button>
+                        <span class="field-error" id="otp-verify-error"></span>
+                        <p class="auth-switch">
+                            <a href="#" id="otp-resend-link">Resend code</a> ·
+                            <a href="#" id="otp-change-number-link">Change number</a>
+                        </p>
                     </div>
 
-                    <div class="form-group">
-                        <label for="id_password">Password</label>
-                        <div class="password-field">
-                            {{ form.password }}
-                            <button type="button" class="password-toggle" data-target="id_password" aria-label="Show password">Show</button>
+                    <!-- STEP 3: rest of the signup form, unlocked once verified -->
+                    <div id="otp-step-signup" style="display:none;">
+                        <p class="otp-verified-note">✓ <span id="otp-verified-number"></span> verified</p>
+                        <!-- Real field the form actually validates/saves; kept in sync with the verified number above. -->
+                        <input type="hidden" name="mobile_number" id="id_mobile_number" value="{{ form.mobile_number.value|default:'' }}">
+
+                        <div class="form-group">
+                            <label for="id_full_name">Full Name</label>
+                            {{ form.full_name }}
+                            {% if form.full_name.errors %}
+                                <span class="field-error">{{ form.full_name.errors|striptags }}</span>
+                            {% endif %}
                         </div>
-                        {% if form.password.errors %}
-                            <span class="field-error">{{ form.password.errors|striptags }}</span>
-                        {% endif %}
-                    </div>
 
-                    <div class="form-group">
-                        <label for="id_confirm_password">Confirm Password</label>
-                        <div class="password-field">
-                            {{ form.confirm_password }}
-                            <button type="button" class="password-toggle" data-target="id_confirm_password" aria-label="Show password">Show</button>
+                        <div class="form-group">
+                            <label for="id_email">Email Address <span class="required-mark">*</span></label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <span class="field-error">{{ form.email.errors|striptags }}</span>
+                            {% endif %}
                         </div>
-                        <span id="password-match-note" class="field-error"></span>
-                        {% if form.confirm_password.errors %}
-                            <span class="field-error">{{ form.confirm_password.errors|striptags }}</span>
-                        {% endif %}
-                    </div>
 
-                    <button type="submit" class="form-submit">Create Account</button>
+                        <div class="form-group">
+                            <label for="id_password">Password</label>
+                            <div class="password-field">
+                                {{ form.password }}
+                                <button type="button" class="password-toggle" data-target="id_password" aria-label="Show password">Show</button>
+                            </div>
+                            {% if form.password.errors %}
+                                <span class="field-error">{{ form.password.errors|striptags }}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group">
+                            <label for="id_confirm_password">Confirm Password</label>
+                            <div class="password-field">
+                                {{ form.confirm_password }}
+                                <button type="button" class="password-toggle" data-target="id_confirm_password" aria-label="Show password">Show</button>
+                            </div>
+                            <span id="password-match-note" class="field-error"></span>
+                            {% if form.confirm_password.errors %}
+                                <span class="field-error">{{ form.confirm_password.errors|striptags }}</span>
+                            {% endif %}
+                        </div>
+
+                        <button type="submit" class="form-submit">Create Account</button>
+                    </div>
                 </form>
 
                 <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Login</a></p>

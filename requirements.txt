@@ -4,10 +4,9 @@
 #   pip install -r requirements.txt
 
 Django>=6.1,<6.2
-gunicorn>=22.0
-whitenoise>=6.6
 Pillow>=10.0
 # psycopg2-binary>=2.9   # uncomment when you switch DB_ENGINE=postgres in .env
 python-dotenv>=1.0
 APScheduler>=3.10
 django-apscheduler>=0.6
+requests>=2.31   # used by accounts/otp_service.py to call the MSG91 API
