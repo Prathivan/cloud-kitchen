@@ -1,6 +1,7 @@
+{% load humanize %}
 {% if item.has_offer %}
-    <span class="price-original">₹{{ item.price|floatformat:0 }}</span>
-    <span class="price-offer">₹{{ item.offer_price|floatformat:0 }}</span>
+    <span class="price-original">₹{{ item.price|floatformat:0|intcomma }}</span>
+    <span class="price-offer">₹{{ item.offer_price|floatformat:0|intcomma }}</span>
 {% else %}
-    <strong>₹{{ item.price|floatformat:0 }}</strong>
+    <strong>₹{{ item.price|floatformat:0|intcomma }}</strong>
 {% endif %}

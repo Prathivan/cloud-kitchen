@@ -12,10 +12,11 @@ admin.py -- nothing here touches that, and the normal Django Admin
 changelist/changeform pages for every model are unaffected.
 """
 import types
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.contrib import admin, messages
 from django.contrib.admin.sites import AdminSite
-from django.db.models import Q, Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
@@ -48,6 +49,21 @@ ADVANCE_LABEL = {
 }
 
 
+def _money(value):
+    """
+    SQLite computes SUM()/AVG() over a DecimalField in floating point
+    internally, then Django converts that back to Decimal -- which can
+    leave long, meaningless tails like Decimal('2619.97000000000020')
+    instead of Decimal('2619.97'). Every money aggregate read in this
+    module goes through this before it's displayed or returned as JSON,
+    so the UI always shows a clean 2-decimal amount regardless of
+    backend.
+    """
+    if value in (None, ""):
+        return Decimal("0.00")
+    return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 def _changelist_url(app_label, model_name, **filters):
     url = reverse(f"admin:{app_label}_{model_name}_changelist")
     if filters:
@@ -67,9 +83,9 @@ def _stat_cards_context():
 
     today = timezone.localdate()
     today_orders = Order.objects.filter(created_at__date=today)
-    today_revenue = (
+    today_revenue = _money(
         today_orders.exclude(status=Order.STATUS_CANCELLED)
-        .aggregate(total=Sum("total_amount"))["total"] or 0
+        .aggregate(total=Sum("total_amount"))["total"]
     )
     from accounts.models import CustomerProfile
 
@@ -157,15 +173,26 @@ def _order_rows_context():
     return orders
 
 
+def _line_revenue_expr():
+    # OrderItem.price is the per-unit price snapshot (see OrderItem.
+    # subtotal()); revenue for a line is price * quantity, not just
+    # price -- summing bare "price" across rows silently ignores
+    # quantity and under-reports revenue.
+    return ExpressionWrapper(F("price") * F("quantity"), output_field=DecimalField(max_digits=12, decimal_places=2))
+
+
 def _best_sellers(limit=5):
     from orders.models import Order, OrderItem
 
-    return list(
+    rows = list(
         OrderItem.objects.exclude(order__status=Order.STATUS_CANCELLED)
         .values("item_name")
-        .annotate(units_sold=Sum("quantity"), revenue=Sum("price"))
+        .annotate(units_sold=Sum("quantity"), revenue=Sum(_line_revenue_expr()))
         .order_by("-units_sold")[:limit]
     )
+    for row in rows:
+        row["revenue"] = _money(row["revenue"])
+    return rows
 
 
 def _recent_reviews(limit=5):
@@ -178,6 +205,8 @@ def _recent_reviews(limit=5):
 
 
 def _dashboard_context(request):
+    from orders.models import AdminNotification
+
     status_rows, donut_gradient = _status_breakdown_data()
     return {
         "stat_cards": _stat_cards_context(),
@@ -185,8 +214,16 @@ def _dashboard_context(request):
         "donut_gradient": donut_gradient,
         "todays_orders": _order_rows_context(),
         "best_sellers": _best_sellers(),
-        "recent_reviews": _recent_reviews(),
+        "recent_reviews": _recent_reviews(limit=3),
         "pending_count": next((r["count"] for r in status_rows if r["status"] == "pending"), 0),
+        "preorder_notifications": list(
+            AdminNotification.objects.filter(
+                notification_type=AdminNotification.TYPE_PREORDER_REMINDER, is_read=False
+            ).select_related("order")[:8]
+        ),
+        "preorder_notification_count": AdminNotification.objects.filter(
+            notification_type=AdminNotification.TYPE_PREORDER_REMINDER, is_read=False
+        ).count(),
     }
 
 
@@ -210,6 +247,8 @@ def _patched_index(self, request, extra_context=None):
 def _dashboard_stats_json_view(request):
     from django.http import JsonResponse
 
+    from orders.models import AdminNotification
+
     cards = _stat_cards_context()
     status_rows, donut_gradient = _status_breakdown_data()
     orders = _order_rows_context()
@@ -217,12 +256,17 @@ def _dashboard_stats_json_view(request):
         request, "admin/_dashboard_orders_rows.html", {"todays_orders": orders},
     ).render().content.decode()
 
+    preorder_notification_count = AdminNotification.objects.filter(
+        notification_type=AdminNotification.TYPE_PREORDER_REMINDER, is_read=False
+    ).count()
+
     return JsonResponse({
         "cards": {c["key"]: c["value"] for c in cards},
         "status_rows": status_rows,
         "donut_gradient": donut_gradient,
         "pending_count": next((r["count"] for r in status_rows if r["status"] == "pending"), 0),
         "orders_html": orders_html,
+        "preorder_notification_count": preorder_notification_count,
     })
 
 
@@ -245,7 +289,11 @@ def _advance_order_view(request, order_id):
                 messages.success(request, f"Order #{order.id} moved to '{order.get_status_display()}'.")
             else:
                 messages.warning(request, f"Order #{order.id} has no further status to advance to.")
-    next_url = request.POST.get("next") or reverse("admin:index")
+    # The dashboard's per-row form sends `next` as a POST field; the
+    # changelist's quick_action button (orders/admin.py) sends it as a
+    # query-string param instead, since it isn't a form of its own (see
+    # that method's docstring for why). Accept either.
+    next_url = request.POST.get("next") or request.GET.get("next") or reverse("admin:index")
     return redirect(next_url)
 
 
@@ -301,16 +349,18 @@ def _reports_context(request):
 
     totals = completed.aggregate(total_sales=Sum("total_amount"), avg_order=Avg("total_amount"))
 
-    best_sellers = (
+    best_sellers = list(
         OrderItem.objects.filter(
             order__created_at__date__gte=start_date,
             order__created_at__date__lte=end_date,
         )
         .exclude(order__status=Order.STATUS_CANCELLED)
         .values("item_name")
-        .annotate(units_sold=Sum("quantity"), revenue=Sum("price"))
+        .annotate(units_sold=Sum("quantity"), revenue=Sum(_line_revenue_expr()))
         .order_by("-units_sold")[:10]
     )
+    for row in best_sellers:
+        row["revenue"] = _money(row["revenue"])
 
     popular_categories = (
         OrderItem.objects.filter(
@@ -330,9 +380,9 @@ def _reports_context(request):
         "end_date": end_date,
         "total_orders": orders_in_range.count(),
         "cancelled_orders": orders_in_range.filter(status=Order.STATUS_CANCELLED).count(),
-        "total_sales": totals["total_sales"] or 0,
-        "average_order_value": totals["avg_order"] or 0,
-        "best_sellers": list(best_sellers),
+        "total_sales": _money(totals["total_sales"]),
+        "average_order_value": _money(totals["avg_order"]),
+        "best_sellers": best_sellers,
         "popular_categories": list(popular_categories),
     }
 

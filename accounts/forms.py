@@ -70,12 +70,27 @@ class CustomerSignupForm(forms.Form):
         validate_password(password)
         return password
 
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
         confirm_password = cleaned_data.get("confirm_password")
         if password and confirm_password and password != confirm_password:
             self.add_error("confirm_password", "Passwords do not match.")
+
+        mobile_number = cleaned_data.get("mobile_number")
+        if mobile_number:
+            from .views import SESSION_VERIFIED_MOBILE  # local import avoids a views<->forms import cycle
+
+            verified_mobile = self.request.session.get(SESSION_VERIFIED_MOBILE) if self.request else None
+            if verified_mobile != mobile_number:
+                self.add_error(
+                    "mobile_number",
+                    "Please verify this mobile number with the code sent via SMS/WhatsApp before continuing.",
+                )
         return cleaned_data
 
     def save(self):

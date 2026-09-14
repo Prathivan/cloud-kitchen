@@ -60,6 +60,29 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ------------------------------------------------------------------
+    # Pre-order
+    # ------------------------------------------------------------------
+    # True for an order made up entirely of pre-order menu items. Cart
+    # logic (see cart.models.cart_order_type) guarantees a cart -- and
+    # therefore an order created from it -- never mixes normal and
+    # pre-order items, so this single flag is enough to tell the two
+    # order types apart everywhere (admin list/filter, customer pages).
+    is_preorder = models.BooleanField(default=False, db_index=True)
+
+    # Calculated once at checkout as
+    #   order.created_at + max(item.menu_item.preorder_hours for item in order)
+    # and never recalculated afterwards -- see orders.views.checkout.
+    # This is a *snapshot*: if an admin later changes a menu item's
+    # preorder_hours, existing orders keep the value that was true when
+    # they were placed. Always null for normal orders.
+    preorder_datetime = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    # Flips to True the moment the 1-hour-before reminder has been
+    # created for this order, so the scheduler never creates a duplicate
+    # reminder for the same order on a later run.
+    preorder_reminder_sent = models.BooleanField(default=False)
+
     # Set once, the moment the order enters that status. Never backdated.
     confirmed_at = models.DateTimeField(null=True, blank=True)
     preparing_at = models.DateTimeField(null=True, blank=True)
@@ -152,3 +175,30 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.item_name} x {self.quantity}"
+
+
+class AdminNotification(models.Model):
+    """
+    Generic admin-panel notification. Currently only created by the
+    pre-order reminder scheduler (see orders/reminders.py), but kept
+    general so other kinds of alerts can reuse it later.
+    """
+
+    TYPE_PREORDER_REMINDER = "preorder_reminder"
+    TYPE_CHOICES = [
+        (TYPE_PREORDER_REMINDER, "Pre-Order Reminder"),
+    ]
+
+    notification_type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    message = models.CharField(max_length=255)
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, null=True, blank=True, related_name="notifications"
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.message

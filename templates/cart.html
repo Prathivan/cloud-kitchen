@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% load static %}
+{% load static humanize %}
 
 {% block title %}Your Cart | Butterfly Cloud Kitchen{% endblock %}
 
@@ -18,6 +18,12 @@
 <section class="cart-section" data-menu-url="{% url 'menu' %}">
 
     <div class="container cart-layout">
+
+        {% if is_preorder_cart %}
+        <div class="preorder-banner">
+            📅 <strong>This is a Pre-Order.</strong> It will be prepared ahead of time and won't be fulfilled immediately — see each item's ready-by time below.
+        </div>
+        {% endif %}
 
         <!-- ================= CART ITEMS ================= -->
 
@@ -293,7 +299,7 @@
                 </span>
 
                 <span data-subtotal>
-                    ₹{{ subtotal|floatformat:0 }}
+                    ₹{{ subtotal|floatformat:2|intcomma }}
                 </span>
 
             </div>
@@ -308,7 +314,7 @@
                 </span>
 
                 <span data-delivery-fee>
-                    ₹{{ delivery_fee|floatformat:0 }}
+                    ₹{{ delivery_fee|floatformat:2|intcomma }}
                 </span>
 
             </div>
@@ -323,7 +329,7 @@
                 </span>
 
                 <span>
-                    ₹{{ tax|floatformat:0 }}
+                    ₹{{ tax|floatformat:2|intcomma }}
                 </span>
 
             </div>
@@ -353,7 +359,7 @@
                 </span>
 
                 <span data-total>
-                    ₹{{ total|floatformat:0 }}
+                    ₹{{ total|floatformat:2|intcomma }}
                 </span>
 
             </div>
@@ -374,6 +380,16 @@
 
                 </button>
             </form>
+
+            {% if cart_items %}
+            <form method="POST" action="{% url 'clear_cart' %}" class="clear-cart-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="cart">
+                <button type="submit" class="clear-cart-btn">
+                    Clear Cart
+                </button>
+            </form>
+            {% endif %}
 
 
             <p class="secure-note">

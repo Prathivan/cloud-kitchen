@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>{{ title }} | Butterfly Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-{% load static %}
+{% load static humanize %}
 <link rel="icon" type="image/png" href="{% static 'images/icons/butterfly.jpeg' %}">
 <style>
 :root {
@@ -20,12 +20,26 @@
     --success: #2e9e5b;
     --purple: #8a5cf6;
     --pink: #ec4899;
+    --lavender: #efeaff;
+    --sky: #e7f6fd;
+    --mint: #e5f8f0;
+    --glass-bg: rgba(255, 255, 255, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.55);
+    --glass-shadow: 0 16px 44px rgba(43, 158, 216, 0.14);
     --sidebar-w: 260px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
 body {
     font-family: -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
-    background: var(--light);
+    background:
+        radial-gradient(circle at 8% 4%, var(--lavender), transparent 34%),
+        radial-gradient(circle at 96% 10%, var(--sky), transparent 32%),
+        radial-gradient(circle at 40% 100%, var(--mint), transparent 38%),
+        var(--light);
     color: var(--dark);
 }
 a { text-decoration: none; color: inherit; }
@@ -35,10 +49,12 @@ a { text-decoration: none; color: inherit; }
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: var(--sidebar-w);
-    background: linear-gradient(180deg, #16283a 0%, #0f1f30 100%);
-    color: #cfe3ee;
+    background: var(--white);
+    color: var(--text);
     overflow-y: auto;
     z-index: 20;
+    border-right: 1px solid var(--border);
+    box-shadow: 2px 0 20px rgba(36,50,61,.05);
     transition: transform .25s ease;
 }
 .bck-sidebar-brand {
@@ -46,11 +62,11 @@ a { text-decoration: none; color: inherit; }
     align-items: center;
     gap: 10px;
     padding: 22px 20px;
-    border-bottom: 1px solid rgba(255,255,255,.08);
+    border-bottom: 1px solid var(--border);
 }
-.bck-sidebar-brand .bck-logo-emoji { font-size: 26px; }
-.bck-sidebar-brand strong { display: block; color: #fff; font-size: 16px; }
-.bck-sidebar-brand span { display: block; font-size: 11px; color: #8fb3c8; }
+.bck-sidebar-brand img { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex: 0 0 32px; }
+.bck-sidebar-brand strong { display: block; color: var(--dark); font-size: 16px; }
+.bck-sidebar-brand span { display: block; font-size: 11px; color: var(--primary); font-weight: 700; }
 
 .bck-nav { padding: 14px 10px; }
 .bck-nav-link {
@@ -61,20 +77,30 @@ a { text-decoration: none; color: inherit; }
     border-radius: 10px;
     font-size: 13px;
     font-weight: 600;
-    color: #cfe3ee;
+    color: var(--text);
     margin-bottom: 2px;
 }
-.bck-nav-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+.bck-nav-link:hover { background: var(--light); color: var(--primary-dark); }
 .bck-nav-link.active { background: var(--primary); color: #fff; }
+.bck-logout-form { margin: 0; }
+.bck-nav-link-button {
+    width: 100%;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
 .bck-nav-icon { width: 18px; text-align: center; }
 .bck-nav-group-label {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .6px;
-    color: #6f93a8;
+    color: #9db3bf;
+    font-weight: 800;
     padding: 14px 12px 6px;
 }
-.bck-subnav { margin-left: 14px; border-left: 1px solid rgba(255,255,255,.08); padding-left: 10px; }
+.bck-subnav { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 10px; }
 .bck-subnav .bck-nav-link { font-size: 12.5px; font-weight: 500; padding: 7px 10px; }
 
 /* ---------------- Topbar + main ---------------- */
@@ -99,16 +125,17 @@ a { text-decoration: none; color: inherit; }
     font-size: 16px;
     cursor: pointer;
 }
-.bck-search-form { flex: 1; max-width: 520px; }
-.bck-search-form input {
-    width: 100%;
-    padding: 9px 16px;
-    border-radius: 999px;
-    border: 0;
-    font-size: 13px;
-    background: rgba(255,255,255,.92);
-}
 .bck-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.bck-view-site {
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 700;
+    background: rgba(255,255,255,.18);
+    padding: 8px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.bck-view-site:hover { background: rgba(255,255,255,.28); }
 .bck-bell { position: relative; color: #fff; font-size: 18px; }
 .bck-bell-badge {
     position: absolute;
@@ -131,29 +158,32 @@ a { text-decoration: none; color: inherit; }
 .bck-profile-name { font-size: 13px; font-weight: 700; }
 .bck-profile-role { font-size: 10px; opacity: .85; }
 
-.bck-content { padding: 26px; flex: 1; }
+.bck-content { padding: 26px; flex: 1; min-width: 0; max-width: 1680px; margin: 0 auto; width: 100%; }
 .bck-page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
 .bck-page-subtitle { font-size: 13px; color: var(--text); margin-bottom: 22px; }
 
 /* ---------------- Stat cards ---------------- */
 .bck-stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(6, 1fr);
     gap: 14px;
     margin-bottom: 22px;
 }
 .bck-stat-card {
-    background: var(--white);
+    background: var(--glass-bg);
     border-radius: 16px;
     padding: 16px 16px;
-    box-shadow: 0 6px 18px rgba(36,50,61,.06);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
     display: flex;
     gap: 12px;
     align-items: flex-start;
-    border: 1px solid var(--border);
+    min-width: 0;
+    border: 1px solid var(--glass-border);
     transition: transform .15s ease, box-shadow .15s ease;
 }
-.bck-stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(36,50,61,.1); }
+.bck-stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(43,158,216,.18); }
 .bck-stat-icon {
     width: 42px; height: 42px;
     border-radius: 12px;
@@ -167,16 +197,48 @@ a { text-decoration: none; color: inherit; }
 .bck-tone-green .bck-stat-icon { background: #e7f8ee; }
 .bck-tone-teal .bck-stat-icon { background: #e2f6f4; }
 .bck-tone-pink .bck-stat-icon { background: #fde8f1; }
+.bck-stat-card > span:last-child { min-width: 0; flex: 1; }
 .bck-stat-label { font-size: 12px; color: var(--text); font-weight: 600; }
-.bck-stat-value { font-size: 22px; font-weight: 800; color: var(--dark); }
+.bck-stat-value {
+    display: inline-block;
+    max-width: 100%;
+    font-size: clamp(16px, 1.7vw, 22px);
+    font-weight: 800;
+    color: var(--dark);
+    white-space: nowrap;
+}
 
 /* ---------------- Panels ---------------- */
-.bck-grid-2col { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 18px; }
-.bck-grid-3col { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 18px; }
+.bck-grid-2col { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 18px; align-items: start; }
+.bck-grid-3col { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 18px; align-items: start; }
+
+/* 6-across only once there is genuinely enough room per card (large
+   desktop). Typical laptop widths (~1100-1600px content area) get 3
+   across instead -- cramming 6 narrow cards in that range was exactly
+   what made "Today's Revenue" wrap mid-number. */
+@media (min-width: 1600px) {
+    .bck-stat-grid { grid-template-columns: repeat(6, 1fr); }
+}
+@media (max-width: 1599px) {
+    .bck-stat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 1300px) {
+    .bck-grid-3col { grid-template-columns: 1fr 1fr; }
+    .bck-grid-3col .bck-panel:first-child { grid-column: 1 / -1; }
+}
 @media (max-width: 1100px) {
     .bck-grid-2col, .bck-grid-3col { grid-template-columns: 1fr; }
+    .bck-stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .bck-panel {
+    /* CSS Grid items default to min-width:auto, i.e. they refuse to
+       shrink below their content's intrinsic width. The Today's Orders
+       table has min-width:640px for its own horizontal-scroll fix
+       (static/admin/css or here below); without min-width:0 here, that
+       640px pushed this whole grid *track* wider than the viewport on
+       mobile, dragging the entire page into horizontal scroll instead
+       of just the table. This is the actual fix for that. */
+    min-width: 0;
     background: var(--white);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -192,7 +254,21 @@ a { text-decoration: none; color: inherit; }
 .bck-panel-head h2 { font-size: 15px; }
 .bck-panel-head a { font-size: 12px; font-weight: 700; color: var(--primary); }
 
-table.bck-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.bck-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12.5px; }
+.bck-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* A subtle right-edge fade hints that there's more to scroll to on
+       touch devices, where scrollbars are usually invisible. */
+    background:
+        linear-gradient(to right, var(--white) 30%, rgba(255,255,255,0)),
+        linear-gradient(to right, rgba(255,255,255,0), var(--white) 70%) 100% 0,
+        linear-gradient(to right, rgba(36,50,61,.08), rgba(36,50,61,0)),
+        linear-gradient(to left, rgba(36,50,61,.08), rgba(36,50,61,0)) 100% 0;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%, 8px 100%, 8px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
 table.bck-table th {
     text-align: left; color: var(--text); font-weight: 700;
     padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px;
@@ -271,6 +347,52 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
     .bck-sidebar.open { transform: translateX(0); }
     .bck-main { margin-left: 0; }
     .bck-hamburger { display: inline-flex; align-items: center; justify-content: center; }
+    .bck-content { padding: 18px; }
+}
+@media (max-width: 480px) {
+    .bck-stat-grid { grid-template-columns: 1fr; }
+    .bck-view-site { padding: 6px 10px; font-size: 11px; }
+    .bck-profile-name, .bck-profile-role { display: none; }
+}
+
+/* Today's Orders table on small screens: stack each row into a card
+   instead of relying on horizontal scrolling, so the whole table fits
+   inside the viewport width on mobile. */
+@media (max-width: 700px) {
+    .bck-orders-scroll { overflow-x: visible; background: none; }
+    table.bck-orders-table { min-width: 0; width: 100%; }
+    table.bck-orders-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    table.bck-orders-table, table.bck-orders-table tbody, table.bck-orders-table tr, table.bck-orders-table td {
+        display: block;
+        width: 100%;
+    }
+    table.bck-orders-table tr {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 6px 12px;
+        margin-bottom: 10px;
+    }
+    table.bck-orders-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #f2f6f8;
+        text-align: right;
+    }
+    table.bck-orders-table td:last-child { border-bottom: 0; }
+    table.bck-orders-table td[colspan] { display: block; text-align: center; }
+    table.bck-orders-table td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+        color: var(--text);
+        text-align: left;
+    }
+    table.bck-orders-table .bck-actions-cell { flex-wrap: wrap; justify-content: flex-end; }
 }
 </style>
 </head>
@@ -278,7 +400,7 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
 
 <aside class="bck-sidebar" id="bckSidebar">
     <div class="bck-sidebar-brand">
-        <span class="bck-logo-emoji">🦋</span>
+        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="">
         <div>
             <strong>Butterfly Admin</strong>
             <span>Kitchen Management</span>
@@ -313,20 +435,26 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
         <div class="bck-nav-group-label">Administration</div>
         <a href="{% url 'admin:auth_user_changelist' %}" class="bck-nav-link"><span class="bck-nav-icon">🛡️</span> Users &amp; Roles</a>
         <a href="{% url 'admin:password_change' %}" class="bck-nav-link"><span class="bck-nav-icon">⚙️</span> Change Password</a>
-        <a href="{% url 'admin:logout' %}" class="bck-nav-link"><span class="bck-nav-icon">🚪</span> Logout</a>
+        <form method="post" action="{% url 'admin:logout' %}" class="bck-logout-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'admin:login' %}">
+            <button type="submit" class="bck-nav-link bck-nav-link-button"><span class="bck-nav-icon">🚪</span> Logout</button>
+        </form>
     </nav>
 </aside>
 
 <div class="bck-main">
     <header class="bck-topbar">
         <button class="bck-hamburger" id="bckHamburger" type="button">☰</button>
-        <form class="bck-search-form" action="{% url 'admin:global_search' %}" method="get">
-            <input type="search" name="q" placeholder="Search for orders, customers, menu items…" value="{{ request.GET.q }}">
-        </form>
         <div class="bck-topbar-right">
+            <a href="{% url 'home' %}" class="bck-view-site" target="_blank" rel="noopener noreferrer">View Site ↗</a>
             <a href="{% url 'admin:orders_order_changelist' %}?status__exact=pending" class="bck-bell" title="Pending orders">
                 🔔
                 <span class="bck-bell-badge" id="bckPendingBadge" style="{% if not pending_count %}display:none;{% endif %}">{{ pending_count }}</span>
+            </a>
+            <a href="{% url 'admin:orders_adminnotification_changelist' %}?notification_type__exact=preorder_reminder&is_read__exact=0" class="bck-bell" title="Pre-order reminders">
+                📦
+                <span class="bck-bell-badge" id="bckPreorderBadge" style="{% if not preorder_notification_count %}display:none;{% endif %}">{{ preorder_notification_count }}</span>
             </a>
             <div class="bck-profile">
                 <div class="bck-avatar">{{ request.user.username|slice:":2"|upper }}</div>
@@ -356,7 +484,7 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
                 <span class="bck-stat-icon">{{ card.icon }}</span>
                 <span>
                     <span class="bck-stat-label">{{ card.label }}</span><br>
-                    <span class="bck-stat-value" data-stat-key="{{ card.key }}">{% if card.is_currency %}₹{% endif %}{{ card.value }}</span>
+                    <span class="bck-stat-value" data-stat-key="{{ card.key }}">{% if card.is_currency %}₹{{ card.value|intcomma }}{% else %}{{ card.value }}{% endif %}</span>
                 </span>
             </a>
             {% endfor %}
@@ -368,8 +496,8 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
                     <h2>Today's Orders</h2>
                     <a href="{% url 'admin:orders_order_changelist' %}">View All Orders →</a>
                 </div>
-                <div style="overflow-x:auto;">
-                <table class="bck-table">
+                <div class="bck-table-scroll bck-orders-scroll">
+                <table class="bck-table bck-orders-table">
                     <thead>
                         <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Amount</th><th>Status</th><th>Time</th><th>Action</th></tr>
                     </thead>
@@ -403,7 +531,7 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
                     <thead><tr><th>#</th><th>Item</th><th>Units Sold</th><th>Revenue</th></tr></thead>
                     <tbody>
                         {% for row in best_sellers %}
-                        <tr><td>{{ forloop.counter }}</td><td>{{ row.item_name }}</td><td>{{ row.units_sold }}</td><td>₹{{ row.revenue }}</td></tr>
+                        <tr><td>{{ forloop.counter }}</td><td>{{ row.item_name }}</td><td>{{ row.units_sold }}</td><td>₹{{ row.revenue|intcomma }}</td></tr>
                         {% empty %}
                         <tr><td colspan="4" class="bck-muted" style="text-align:center;padding:18px;">No sales yet.</td></tr>
                         {% endfor %}
@@ -457,12 +585,21 @@ document.getElementById("bckHamburger").addEventListener("click", function () {
 (function () {
     var statsUrl = "{% url 'admin:dashboard_stats' %}";
 
+    function formatMoney(value) {
+        // Mirrors Django's {{ value|intcomma }} used for the same
+        // figures on initial page load, so the live poll never shows a
+        // different number format than the server-rendered version.
+        var parts = String(value).split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return parts.join(".");
+    }
+
     function applyStats(data) {
         document.querySelectorAll("[data-stat-key]").forEach(function (el) {
             var key = el.getAttribute("data-stat-key");
             if (!(key in data.cards)) return;
             var value = data.cards[key];
-            el.textContent = (key === "todays_revenue" ? "₹" : "") + value;
+            el.textContent = (key === "todays_revenue" ? "₹" + formatMoney(value) : value);
         });
 
         var donut = document.getElementById("bckDonut");
@@ -479,6 +616,12 @@ document.getElementById("bckHamburger").addEventListener("click", function () {
             // Hide the badge entirely once there are no pending orders,
             // instead of leaving a stale "0" bubble showing.
             badge.style.display = data.pending_count > 0 ? "" : "none";
+        }
+
+        var preorderBadge = document.getElementById("bckPreorderBadge");
+        if (preorderBadge && typeof data.preorder_notification_count === "number") {
+            preorderBadge.textContent = data.preorder_notification_count;
+            preorderBadge.style.display = data.preorder_notification_count > 0 ? "" : "none";
         }
 
         var rows = document.getElementById("bckOrdersRows");

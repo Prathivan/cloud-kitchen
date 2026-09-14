@@ -10,11 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Loads variables from a ".env" file at the project root (same folder as
+# manage.py) into os.environ, if that file exists. Nothing happens if it
+# doesn't -- so this is safe to leave in for every environment. Real
+# secrets (DB password, SECRET_KEY, etc.) belong in .env, which is not
+# committed to version control; see .env.example for the variables this
+# project reads.
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -22,13 +33,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-)_3l##7u&vua98t^v715h9wlb_glor#o#z0t(58$=b0(4wl%93"
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-)_3l##7u&vua98t^v715h9wlb_glor#o#z0t(58$=b0(4wl%93"
+)
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
+
+# Needed for any host behind a reverse proxy that terminates HTTPS for
+# you (Render, Railway, Heroku, etc.) -- without this, Django can't
+# tell the original request was HTTPS (it only sees plain HTTP from
+# the proxy), which breaks CSRF validation and secure-cookie behavior
+# in confusing ways. Safe to leave in for local development too, since
+# runserver doesn't set this header and DEBUG mode doesn't require it.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Add your deployed domain(s) here once you have one, e.g.
+# CSRF_TRUSTED_ORIGINS=https://butterfly-cloud-kitchen.onrender.com
+# (comma-separated for more than one, same pattern as ALLOWED_HOSTS
+# above). Required by Django whenever a form is submitted over HTTPS
+# to a host not already implied by ALLOWED_HOSTS + the request's own
+# origin -- which is exactly the Render setup.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 
 
 # =========================
@@ -42,6 +71,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
+
+    "django_apscheduler",
 
     "accounts",
     "menu",
@@ -56,6 +88,12 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+
+    # Serves collected static files directly from the Django app in
+    # production (see STORAGES below) -- must stay directly after
+    # SecurityMiddleware, per WhiteNoise's own setup instructions.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
 
@@ -108,13 +146,32 @@ WSGI_APPLICATION = "config.wsgi.application"
 # =========================
 # DATABASE
 # =========================
+#
+# Defaults to SQLite for now (works immediately, no server to install
+# or configure) so pre-order/other work isn't blocked on a Postgres
+# setup. Switching to Postgres later is a one-line change: set
+# DB_ENGINE=postgres in .env (see .env.example) along with DB_NAME/
+# DB_USER/DB_PASSWORD/DB_HOST/DB_PORT -- no code changes needed.
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if os.environ.get("DB_ENGINE", "sqlite") == "postgres":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "butterfly_cloud_kitchen"),
+            "USER": os.environ.get("DB_USER", "butterfly"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # =========================
@@ -159,6 +216,39 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# Required for `collectstatic` (Render/most hosts run this during
+# build) -- this is where collectstatic copies every static file to,
+# separate from STATICFILES_DIRS above (which is where your SOURCE
+# static files live during development). Not needed for local
+# `runserver`, which serves static files itself without collectstatic.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise lets the Django app itself serve those collected static
+# files efficiently in production, with compression + far-future
+# cache headers -- without this, collectstatic would succeed but
+# CSS/JS/images would still 404 once deployed, since Render doesn't
+# run a separate web server (nginx, etc.) in front of the app for you.
+#
+# The manifest-based storage (used when DEBUG=False) requires
+# `collectstatic` to have already run -- it looks up each file's
+# hashed name from a manifest it generates, so it must NOT be used
+# during local development or in tests, where collectstatic is
+# rarely run first and every {% static %} tag would otherwise raise
+# "Missing staticfiles manifest entry". Plain storage in DEBUG mode
+# resolves static files directly instead, no manifest needed.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
 
 
 # =========================

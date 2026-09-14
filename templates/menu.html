@@ -116,6 +116,16 @@
                     {% endif %}
 
 
+                    {% if item.is_preorder %}
+
+                    <p class="preorder-hint">
+                        <span class="preorder-hint-tag">Pre-Order Item</span>
+                        {{ item.preorder_label }}
+                    </p>
+
+                    {% endif %}
+
+
                     <div class="food-bottom">
 
                         <!-- PRICE -->

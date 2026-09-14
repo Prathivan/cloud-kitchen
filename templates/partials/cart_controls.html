@@ -3,7 +3,8 @@
     class="food-cart-controls"
     data-menu-item-id="{{ item.id }}"
     data-add-url="{% url 'add_to_cart' item.id %}"
-    data-update-url-template="{% url 'update_cart_quantity' 999999999 %}">
+    data-update-url-template="{% url 'update_cart_quantity' 999999999 %}"
+    data-is-preorder="{% if item.is_preorder %}1{% else %}0{% endif %}">
 
 {% if item.orderable %}
 
@@ -49,13 +50,20 @@
         <form
             action="{% url 'add_to_cart' item.id %}"
             method="POST"
-            class="cart-add-form">
+            class="cart-add-form {% if item.is_preorder %}preorder-add-form{% endif %}"
+            {% if item.is_preorder %}data-preorder="1"{% endif %}>
 
             {% csrf_token %}
 
+            {% if item.is_preorder %}
+            <button class="add-btn preorder-btn" type="submit">
+                📅 Pre-Order
+            </button>
+            {% else %}
             <button class="add-btn" type="submit">
                 + Add
             </button>
+            {% endif %}
 
         </form>
 

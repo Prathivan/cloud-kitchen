@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import Order, OrderItem
+from .models import AdminNotification, Order, OrderItem
 
 
 class OrderItemInline(admin.TabularInline):
@@ -100,24 +100,44 @@ ADVANCE_LABEL = {
 }
 
 
+class OrderTypeFilter(admin.SimpleListFilter):
+    """All / Normal Orders / Pre-Orders filter for the changelist sidebar."""
+
+    title = "order type"
+    parameter_name = "order_type"
+
+    def lookups(self, request, model_admin):
+        return [("normal", "Normal Orders"), ("preorder", "Pre-Orders")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "normal":
+            return queryset.filter(is_preorder=False)
+        if self.value() == "preorder":
+            return queryset.filter(is_preorder=True)
+        return queryset
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "user",
+        "order_type_badge",
         "status_badge",
         "item_count",
-        "total_amount",
+        "formatted_total",
         "created_at",
+        "preorder_datetime_display",
         "quick_action",
     )
-    list_filter = ("status", "created_at")
+    list_filter = (OrderTypeFilter, "status", "created_at")
     search_fields = ("=id", "user__email", "user__username", "user__customer_profile__mobile_number")
     date_hierarchy = "created_at"
     readonly_fields = (
         "user", "total_amount", "created_at",
         "confirmed_at", "preparing_at", "ready_at", "out_for_delivery_at",
         "delivered_at", "cancelled_at",
+        "is_preorder", "preorder_datetime", "preorder_reminder_sent",
     )
     inlines = [OrderItemInline]
     actions = [accept_orders, start_preparing, mark_ready, dispatch_orders, complete_delivery, cancel_orders]
@@ -125,16 +145,37 @@ class OrderAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user").prefetch_related("items")
 
-    def changelist_view(self, request, extra_context=None):
-        # Stashed so quick_action() below can generate a real CSRF token
-        # for its inline per-row form (list_display methods don't
-        # otherwise receive the request).
-        self._request = request
-        return super().changelist_view(request, extra_context)
-
     @admin.display(description="Items")
     def item_count(self, obj):
         return sum(item.quantity for item in obj.items.all())
+
+    @admin.display(description="Total", ordering="total_amount")
+    def formatted_total(self, obj):
+        from django.contrib.humanize.templatetags.humanize import intcomma
+
+        return f"₹{intcomma(obj.total_amount)}"
+
+    @admin.display(description="Type", ordering="is_preorder")
+    def order_type_badge(self, obj):
+        from django.utils.safestring import mark_safe
+
+        if obj.is_preorder:
+            return mark_safe(
+                '<span style="display:inline-block;padding:3px 10px;border-radius:999px;'
+                'font-size:11px;font-weight:700;color:#fff;background:#8a5cf6;">Pre-Order</span>'
+            )
+        return mark_safe(
+            '<span style="display:inline-block;padding:3px 10px;border-radius:999px;'
+            'font-size:11px;font-weight:700;color:#52616b;background:#eef2f4;">Normal Order</span>'
+        )
+
+    @admin.display(description="Pre-Order Date & Time", ordering="preorder_datetime")
+    def preorder_datetime_display(self, obj):
+        # Hidden/marked N/A for normal orders -- never show an empty
+        # date/time field for them.
+        if not obj.is_preorder or not obj.preorder_datetime:
+            return "—"
+        return timezone.localtime(obj.preorder_datetime).strftime("%d %b %Y, %I:%M %p")
 
     @admin.display(description="Status")
     def status_badge(self, obj):
@@ -150,23 +191,52 @@ class OrderAdmin(admin.ModelAdmin):
         """
         A one-click button that moves this single order to the next
         status in the kitchen workflow, without needing to select it
-        and run a bulk action. Posts to the same admin:advance_order
-        view the custom dashboard uses, then returns to this changelist.
+        and run a bulk action.
+
+        IMPORTANT: Django's changelist page already wraps the entire
+        results table in one <form id="changelist-form">. Nesting a
+        second <form> inside a table cell here (as an earlier version
+        of this method did) produces invalid, unreliable HTML -- browsers
+        don't support nested forms, so the inner submit button ends up
+        firing the *outer* changelist form instead of this one, and the
+        button silently does nothing useful. Using formaction/formmethod
+        on a plain <button> avoids nesting: the click still submits the
+        one real (outer) form -- reusing its already-valid CSRF token --
+        but targets this order's advance-status URL instead of the
+        default changelist action.
         """
         next_status = NEXT_STATUS.get(obj.status)
         if not next_status:
             return "—"
         label = ADVANCE_LABEL[obj.status]
-        url = reverse("admin:advance_order", args=[obj.id])
+        # The `next` param travels as a query string on the formaction
+        # URL (not a hidden field, since there's no nested form to hold
+        # one) so the view can redirect back here afterwards.
         changelist_url = reverse("admin:orders_order_changelist")
-        from django.middleware.csrf import get_token
-        token = get_token(getattr(self, "_request", None)) if getattr(self, "_request", None) else ""
+        url = reverse("admin:advance_order", args=[obj.id]) + f"?next={changelist_url}"
         return format_html(
-            '<form method="post" action="{}" style="display:inline;">'
-            '<input type="hidden" name="csrfmiddlewaretoken" value="{}">'
-            '<input type="hidden" name="next" value="{}">'
-            '<button type="submit" style="border:0;background:#2b9ed8;color:#fff;'
-            'font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;">{}</button>'
-            '</form>',
-            url, token, changelist_url, label,
+            '<button type="submit" formaction="{}" formmethod="post" '
+            'style="border:0;background:#2b9ed8;color:#fff;font-size:11px;font-weight:700;'
+            'padding:5px 10px;border-radius:8px;cursor:pointer;">{}</button>',
+            url, label,
         )
+
+
+@admin.register(AdminNotification)
+class AdminNotificationAdmin(admin.ModelAdmin):
+    list_display = ("message", "notification_type", "order_link", "is_read", "created_at")
+    list_filter = ("notification_type", "is_read")
+    readonly_fields = ("notification_type", "message", "order", "created_at")
+    actions = ["mark_as_read"]
+
+    @admin.display(description="Order")
+    def order_link(self, obj):
+        if not obj.order_id:
+            return "—"
+        url = reverse("admin:orders_order_change", args=[obj.order_id])
+        return format_html('<a href="{}">#ORD{:05d}</a>', url, obj.order_id)
+
+    @admin.action(description="Mark selected notifications as read")
+    def mark_as_read(self, request, queryset):
+        updated = queryset.update(is_read=True)
+        messages.success(request, f"{updated} notification(s) marked as read.")
