@@ -9,7 +9,7 @@
             <div class="auth-card">
                 <div class="auth-header">
                     <a href="{% url 'home' %}" class="logo">
-                        <img src="{% static 'images/icons/logo.svg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
+                        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="Butterfly Cloud Kitchen logo" class="logo-icon">
                     </a>
                     <h1>Create Your Account</h1>
                     <p>Sign up to start ordering from Butterfly Cloud Kitchen.</p>
@@ -32,7 +32,7 @@
                     <!-- STEP 1: enter mobile number + choose channel, request a code -->
                     <div class="form-group" id="otp-step-request">
                         <label for="otp-mobile-input">Mobile Number <span class="required-mark">*</span></label>
-                        <input type="text" id="otp-mobile-input" placeholder="e.g. +1 555 123 4567" autocomplete="tel"
+                        <input type="text" id="otp-mobile-input" placeholder="e.g. +91 98765 43210" autocomplete="tel"
                                value="{{ form.mobile_number.value|default:'' }}">
                         <div class="otp-channel-choice">
                             <label><input type="radio" name="otp_channel" value="sms" checked> SMS</label>

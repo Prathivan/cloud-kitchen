@@ -8,12 +8,15 @@ from django.db import models
 from django.utils import timezone
 
 
-mobile_number_re = re.compile(r"^\+?\d{7,15}$")
+mobile_number_re = re.compile(r"^(?:\+91|91|0)?[6-9]\d{9}$")
 
 
 def validate_mobile_number(value):
     if not mobile_number_re.match(value):
-        raise ValidationError("Enter a valid mobile number (7-15 digits, optionally starting with +).")
+        raise ValidationError(
+            "Enter a valid Indian mobile number (10 digits starting with 6-9, "
+            "optionally prefixed with +91)."
+        )
 
 
 class CustomerProfile(models.Model):

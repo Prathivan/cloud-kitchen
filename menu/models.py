@@ -65,8 +65,12 @@ class MenuItem(models.Model):
     selling_units_date = models.DateField(default=timezone.localdate)
 
     # Controls whether the is_available_from/is_available_till time window
-    # is enforced.
-    available_tracking = models.BooleanField(default=True)
+    # is enforced. Defaults to off (consistent with is_selling_unit_tracking
+    # above) so a newly-added menu item is simply available whenever
+    # is_available says so, without a time-window restriction the admin
+    # didn't explicitly opt into -- matches what the add-menu-item form
+    # should show as its starting state.
+    available_tracking = models.BooleanField(default=False)
     is_available_from = models.TimeField(null=True, blank=True)
     is_available_till = models.TimeField(null=True, blank=True)
 

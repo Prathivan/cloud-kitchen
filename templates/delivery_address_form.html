@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if is_edit %}Edit Address{% else %}Add Address{% endif %} | Butterfly Cloud Kitchen{% endblock %}
+{% block content %}
+
+<section class="page-hero">
+    <div class="container">
+        <span>Delivery</span>
+        <h1>{% if is_edit %}Edit Address{% else %}Add New Address{% endif %}</h1>
+        <p>Search or drop a pin for the exact delivery spot, then fill in the details.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container address-form-layout">
+
+        {% if form.non_field_errors %}
+            <p class="field-error" style="text-align:center; margin-bottom:14px;">{{ form.non_field_errors|striptags }}</p>
+        {% endif %}
+
+        <form method="post" class="address-form" id="address-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+
+            {% if google_maps_api_key %}
+            <div class="address-form-section">
+                <h3>Delivery Location</h3>
+                <input type="text" id="map-search-input" placeholder="Search for a location..." class="map-search-input">
+                <div id="delivery-map" class="delivery-map"></div>
+                <p class="map-hint">Drag the pin to the exact entrance/building if the search result isn't precise.</p>
+                <p class="selected-location-note" id="selected-location-note" style="{% if not form.formatted_address.value %}display:none;{% endif %}">
+                    Selected: <span id="selected-location-text">{{ form.formatted_address.value|default:"" }}</span>
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Map fields are optional -- kept as plain hidden inputs
+                 whether or not the map UI above is shown, so the form
+                 works identically either way. -->
+            {{ form.latitude }}
+            {{ form.longitude }}
+            {{ form.google_place_id }}
+            {{ form.formatted_address }}
+
+            <div class="address-form-section">
+                <h3>Address Label</h3>
+                <div class="address-label-choice">
+                    {% for radio in form.address_label %}
+                        <label>{{ radio.tag }} {{ radio.choice_label }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="address-form-section">
+                <h3>Contact for This Address</h3>
+                <div class="form-group">
+                    <label for="{{ form.full_name.id_for_label }}">Full Name</label>
+                    {{ form.full_name }}
+                    {% if form.full_name.errors %}<span class="field-error">{{ form.full_name.errors|striptags }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}<span class="field-error">{{ form.phone.errors|striptags }}</span>{% endif %}
+                </div>
+            </div>
+
+            <div class="address-form-section">
+                <h3>Address Details</h3>
+                <div class="form-group">
+                    <label for="{{ form.address_line_1.id_for_label }}">Address Line 1</label>
+                    {{ form.address_line_1 }}
+                    {% if form.address_line_1.errors %}<span class="field-error">{{ form.address_line_1.errors|striptags }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.address_line_2.id_for_label }}">Address Line 2 (optional)</label>
+                    {{ form.address_line_2 }}
+                </div>
+                <div class="address-form-row">
+                    <div class="form-group"><label for="{{ form.building.id_for_label }}">Building</label>{{ form.building }}</div>
+                    <div class="form-group"><label for="{{ form.apartment.id_for_label }}">Apartment</label>{{ form.apartment }}</div>
+                    <div class="form-group"><label for="{{ form.floor.id_for_label }}">Floor</label>{{ form.floor }}</div>
+                </div>
+                <div class="address-form-row">
+                    <div class="form-group"><label for="{{ form.street.id_for_label }}">Street</label>{{ form.street }}</div>
+                    <div class="form-group"><label for="{{ form.area.id_for_label }}">Area</label>{{ form.area }}</div>
+                </div>
+                <div class="address-form-row">
+                    <div class="form-group">
+                        <label for="{{ form.city.id_for_label }}">City</label>
+                        {{ form.city }}
+                        {% if form.city.errors %}<span class="field-error">{{ form.city.errors|striptags }}</span>{% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ form.state.id_for_label }}">State</label>
+                        {{ form.state }}
+                        {% if form.state.errors %}<span class="field-error">{{ form.state.errors|striptags }}</span>{% endif %}
+                    </div>
+                </div>
+                <div class="address-form-row">
+                    <div class="form-group">
+                        <label for="{{ form.postal_code.id_for_label }}">Postal Code</label>
+                        {{ form.postal_code }}
+                        {% if form.postal_code.errors %}<span class="field-error">{{ form.postal_code.errors|striptags }}</span>{% endif %}
+                    </div>
+                    <div class="form-group"><label for="{{ form.country.id_for_label }}">Country</label>{{ form.country }}</div>
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.delivery_instructions.id_for_label }}">Delivery Instructions (optional)</label>
+                    {{ form.delivery_instructions }}
+                </div>
+                <div class="form-group address-default-checkbox">
+                    <label>{{ form.is_default }} Set as default address</label>
+                </div>
+            </div>
+
+            <button type="submit" class="form-submit">{% if is_edit %}Save Changes{% else %}Save Address{% endif %}</button>
+        </form>
+    </div>
+</section>
+
+{% if google_maps_api_key %}
+<script>
+  // Populated once Google Maps loads (see the script tag below) --
+  // kept outside any function so both initDeliveryMap() and the
+  // Autocomplete/drag handlers can all reach the same marker/map
+  // instance.
+  var deliveryMap, deliveryMarker, deliveryGeocoder;
+
+  function applyPlaceResult(lat, lng, placeId, formattedAddress) {
+    document.getElementById("{{ form.latitude.id_for_label }}").value = lat;
+    document.getElementById("{{ form.longitude.id_for_label }}").value = lng;
+    document.getElementById("{{ form.google_place_id.id_for_label }}").value = placeId || "";
+    document.getElementById("{{ form.formatted_address.id_for_label }}").value = formattedAddress || "";
+
+    var note = document.getElementById("selected-location-note");
+    var text = document.getElementById("selected-location-text");
+    if (formattedAddress) {
+      text.textContent = formattedAddress;
+      note.style.display = "";
+    }
+  }
+
+  function reverseGeocodeAndApply(lat, lng) {
+    deliveryGeocoder.geocode({ location: { lat: lat, lng: lng } }, function (results, status) {
+      var formattedAddress = (status === "OK" && results[0]) ? results[0].formatted_address : "";
+      var placeId = (status === "OK" && results[0]) ? results[0].place_id : "";
+      applyPlaceResult(lat, lng, placeId, formattedAddress);
+    });
+  }
+
+  function initDeliveryMap() {
+    var existingLat = parseFloat(document.getElementById("{{ form.latitude.id_for_label }}").value);
+    var existingLng = parseFloat(document.getElementById("{{ form.longitude.id_for_label }}").value);
+    var hasExisting = !isNaN(existingLat) && !isNaN(existingLng);
+    // Falls back to central India when no pin has been set yet, purely
+    // so the map has somewhere to render -- this is NOT saved unless
+    // the customer actually searches or drags the pin themselves.
+    var startPosition = hasExisting
+      ? { lat: existingLat, lng: existingLng }
+      : { lat: 20.5937, lng: 78.9629 };
+
+    deliveryGeocoder = new google.maps.Geocoder();
+    deliveryMap = new google.maps.Map(document.getElementById("delivery-map"), {
+      center: startPosition,
+      zoom: hasExisting ? 16 : 5,
+    });
+    deliveryMarker = new google.maps.Marker({
+      position: startPosition,
+      map: deliveryMap,
+      draggable: true,
+    });
+
+    deliveryMarker.addListener("dragend", function () {
+      var pos = deliveryMarker.getPosition();
+      reverseGeocodeAndApply(pos.lat(), pos.lng());
+    });
+
+    deliveryMap.addListener("click", function (event) {
+      deliveryMarker.setPosition(event.latLng);
+      reverseGeocodeAndApply(event.latLng.lat(), event.latLng.lng());
+    });
+
+    var searchInput = document.getElementById("map-search-input");
+    var autocomplete = new google.maps.places.Autocomplete(searchInput);
+    autocomplete.bindTo("bounds", deliveryMap);
+    autocomplete.addListener("place_changed", function () {
+      var place = autocomplete.getPlace();
+      if (!place.geometry) return;
+      var lat = place.geometry.location.lat();
+      var lng = place.geometry.location.lng();
+      deliveryMap.setCenter(place.geometry.location);
+      deliveryMap.setZoom(17);
+      deliveryMarker.setPosition(place.geometry.location);
+      applyPlaceResult(lat, lng, place.place_id, place.formatted_address);
+    });
+  }
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initDeliveryMap" async defer></script>
+{% endif %}
+
+{% endblock %}

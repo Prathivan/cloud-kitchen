@@ -1,0 +1,52 @@
+# Render "Blueprint" -- lets Render read this file and set up both the
+# web service AND a Postgres database together, with the database
+# automatically wired up via DATABASE_URL. This is the "automatic"
+# Postgres setup: nothing here needs manual DB_NAME/DB_USER/DB_PASSWORD
+# entry, unlike setting up Postgres by hand in the dashboard.
+#
+# To use this: on Render, choose "New +" -> "Blueprint", point it at
+# this GitHub repo, and Render reads this file automatically.
+
+databases:
+  - name: butterfly-cloud-kitchen-db
+    plan: free
+    databaseName: butterfly_cloud_kitchen
+    user: butterfly
+
+services:
+  - type: web
+    name: butterfly-cloud-kitchen
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      # Automatically filled in with this service's own Postgres
+      # connection string once the database above finishes
+      # provisioning -- config/settings.py picks this up on its own.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: butterfly-cloud-kitchen-db
+          property: connectionString
+
+      # Render generates a real random value for this -- you never see
+      # or set it yourself, and it's different from the insecure
+      # fallback used for local development.
+      - key: SECRET_KEY
+        generateValue: true
+
+      - key: DEBUG
+        value: "False"
+
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+      # --- Everything below is OPTIONAL and NOT auto-filled ---
+      # These have safe defaults (features fall back to console-only
+      # stubs, or a Shell-free superuser bootstrap) if left unset --
+      # add real values in the Render dashboard only once you're ready:
+      #   DJANGO_SUPERUSER_USERNAME / _EMAIL / _PASSWORD
+      #       (creates your first admin login on the free/Hobby plan,
+      #       which has no Shell tab -- see README.md)
+      #   GOOGLE_MAPS_API_KEY        (delivery address map picker)
+      #   OTP_PROVIDER=msg91         (+ MSG91_* vars, real SMS/WhatsApp OTP)

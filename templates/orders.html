@@ -35,6 +35,22 @@
                     </p>
                     {% endif %}
 
+                    {% if order.recipient_name %}
+                    <p class="order-delivery-note">
+                        🚚 <strong>Deliver To:</strong>
+                        {% if order.delivery_type == "other" %}
+                            {{ order.recipient_name }} ({{ order.recipient_phone }})
+                        {% else %}
+                            Myself ({{ order.recipient_name }})
+                        {% endif %}
+                        {% if order.formatted_address or order.city %}
+                            <br><span style="opacity:0.75;">
+                                {% if order.formatted_address %}{{ order.formatted_address }}{% else %}{{ order.address_line_1 }}, {{ order.city }}{% endif %}
+                            </span>
+                        {% endif %}
+                    </p>
+                    {% endif %}
+
                     <ul class="order-items-list">
                         {% for item in order.items.all %}
                         <li><span>{{ item.item_name }} × {{ item.quantity }}</span><span>₹{{ item.subtotal|floatformat:2|intcomma }}</span></li>

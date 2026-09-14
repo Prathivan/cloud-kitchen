@@ -367,19 +367,26 @@
 
             <!-- CHECKOUT -->
 
-            <form method="POST" action="{% url 'checkout' %}">
-                {% csrf_token %}
+            {% if cart_items %}
+            <a
+                href="{% url 'checkout_address' %}"
+                class="checkout-btn"
+                data-checkout-btn>
 
-                <button
-                    type="submit"
-                    class="checkout-btn"
-                    data-checkout-btn
-                    {% if not cart_items %}disabled{% endif %}>
+                Proceed to Checkout →
 
-                    Proceed to Checkout →
+            </a>
+            {% else %}
+            <button
+                type="button"
+                class="checkout-btn"
+                data-checkout-btn
+                disabled>
 
-                </button>
-            </form>
+                Proceed to Checkout →
+
+            </button>
+            {% endif %}
 
             {% if cart_items %}
             <form method="POST" action="{% url 'clear_cart' %}" class="clear-cart-form">

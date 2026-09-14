@@ -1,3 +1,5 @@
+import os
+from unittest import mock
 from unittest.mock import patch
 
 import requests
@@ -63,7 +65,7 @@ class SignupTests(TestCase):
     def _signup_payload(self, **overrides):
         payload = {
             "full_name": "Test Customer",
-            "mobile_number": "+15551234567",
+            "mobile_number": "+919100000005",
             "email": "test.customer@example.com",
             "password": "SupErStrongPW123",
             "confirm_password": "SupErStrongPW123",
@@ -72,7 +74,7 @@ class SignupTests(TestCase):
         return payload
 
     def test_signup_creates_customer_only_account(self):
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         resp = self.client.post(reverse("signup"), self._signup_payload(), follow=True)
         self.assertEqual(resp.redirect_chain[-1][0], reverse("home"))
 
@@ -82,7 +84,7 @@ class SignupTests(TestCase):
 
         profile = CustomerProfile.objects.get(user=user)
         self.assertEqual(profile.role, CustomerProfile.ROLE_CUSTOMER)
-        self.assertEqual(profile.mobile_number, "+15551234567")
+        self.assertEqual(profile.mobile_number, "+919100000005")
 
         # Signing up logs the customer straight into the website.
         self.assertTrue(resp.context["user"].is_authenticated) if hasattr(resp, "context") else None
@@ -100,30 +102,30 @@ class SignupTests(TestCase):
         self.assertFalse(User.objects.filter(email="test.customer@example.com").exists())
 
     def test_signup_blocked_if_verified_number_does_not_match_submitted_number(self):
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         resp = self.client.post(
             reverse("signup"),
-            self._signup_payload(mobile_number="+15550000000"),
+            self._signup_payload(mobile_number="+919100000001"),
         )
         self.assertContains(resp, "Please verify this mobile number")
         self.assertFalse(User.objects.filter(email="test.customer@example.com").exists())
 
     def test_duplicate_email_rejected(self):
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         self.client.post(reverse("signup"), self._signup_payload())
         self.client.get(reverse("logout"))
-        self._verify_mobile("+15559999999")
+        self._verify_mobile("+919100000019")
         resp = self.client.post(
             reverse("signup"),
-            self._signup_payload(mobile_number="+15559999999"),
+            self._signup_payload(mobile_number="+919100000019"),
         )
         self.assertContains(resp, "An account with this email address already exists.")
 
     def test_duplicate_mobile_rejected(self):
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         self.client.post(reverse("signup"), self._signup_payload())
         self.client.get(reverse("logout"))
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         resp = self.client.post(
             reverse("signup"),
             self._signup_payload(email="someone.else@example.com"),
@@ -131,7 +133,7 @@ class SignupTests(TestCase):
         self.assertContains(resp, "An account with this mobile number already exists.")
 
     def test_password_mismatch_rejected(self):
-        self._verify_mobile("+15551234567")
+        self._verify_mobile("+919100000005")
         resp = self.client.post(
             reverse("signup"),
             self._signup_payload(confirm_password="Different123"),
@@ -153,7 +155,7 @@ class OTPFlowTests(TestCase):
     verification step, independent of the rest of the signup form.
     """
 
-    def _send_otp(self, mobile_number="+15551234567", channel="sms"):
+    def _send_otp(self, mobile_number="+919100000005", channel="sms"):
         return self.client.post(
             reverse("send_otp"), {"mobile_number": mobile_number, "channel": channel}
         )
@@ -171,10 +173,10 @@ class OTPFlowTests(TestCase):
             resp = self._send_otp()
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["ok"])
-        self.assertEqual(OTPVerification.objects.filter(mobile_number="+15551234567").count(), 1)
+        self.assertEqual(OTPVerification.objects.filter(mobile_number="+919100000005").count(), 1)
         mock_send.assert_called_once()
         called_mobile, called_channel, called_code = mock_send.call_args[0]
-        self.assertEqual(called_mobile, "+15551234567")
+        self.assertEqual(called_mobile, "+919100000005")
         self.assertEqual(called_channel, "sms")
         self.assertEqual(len(called_code), OTPVerification.CODE_LENGTH)
 
@@ -191,7 +193,7 @@ class OTPFlowTests(TestCase):
     def test_send_otp_rejects_already_registered_mobile(self):
         User.objects.create_user(username="existing@example.com", email="existing@example.com", password="x")
         CustomerProfile.objects.create(user=User.objects.get(email="existing@example.com"),
-                                        full_name="Existing", mobile_number="+15551234567")
+                                        full_name="Existing", mobile_number="+919100000005")
         resp = self._send_otp()
         self.assertEqual(resp.status_code, 400)
         self.assertIn("already exists", resp.json()["error"])
@@ -210,7 +212,7 @@ class OTPFlowTests(TestCase):
         data = resp.json()
         self.assertTrue(data["ok"])
         self.assertIn("debug_code", data)
-        otp = self._latest_code_for("+15551234567")
+        otp = self._latest_code_for("+919100000005")
         self.assertTrue(otp.check_code(data["debug_code"]))
 
     def test_send_otp_hides_debug_code_when_debug_false(self):
@@ -231,13 +233,13 @@ class OTPFlowTests(TestCase):
             self._send_otp()
 
         resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15551234567", "code": captured["code"]}
+            reverse("verify_otp"), {"mobile_number": "+919100000005", "code": captured["code"]}
         )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["ok"])
-        self.assertEqual(self.client.session[SESSION_VERIFIED_MOBILE], "+15551234567")
+        self.assertEqual(self.client.session[SESSION_VERIFIED_MOBILE], "+919100000005")
 
-        otp = self._latest_code_for("+15551234567")
+        otp = self._latest_code_for("+919100000005")
         self.assertTrue(otp.is_verified)
         self.assertIsNotNone(otp.verified_at)
 
@@ -246,13 +248,13 @@ class OTPFlowTests(TestCase):
             self._send_otp()
 
         resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15551234567", "code": "000000"}
+            reverse("verify_otp"), {"mobile_number": "+919100000005", "code": "000000"}
         )
         self.assertEqual(resp.status_code, 400)
         self.assertFalse(resp.json()["ok"])
         self.assertNotIn(SESSION_VERIFIED_MOBILE, self.client.session)
 
-        otp = self._latest_code_for("+15551234567")
+        otp = self._latest_code_for("+919100000005")
         self.assertEqual(otp.attempts, 1)
 
     def test_verify_locks_out_after_max_attempts(self):
@@ -260,10 +262,10 @@ class OTPFlowTests(TestCase):
             self._send_otp()
 
         for _ in range(OTPVerification.MAX_ATTEMPTS):
-            self.client.post(reverse("verify_otp"), {"mobile_number": "+15551234567", "code": "000000"})
+            self.client.post(reverse("verify_otp"), {"mobile_number": "+919100000005", "code": "000000"})
 
         resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15551234567", "code": "000000"}
+            reverse("verify_otp"), {"mobile_number": "+919100000005", "code": "000000"}
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Too many incorrect attempts", resp.json()["error"])
@@ -272,19 +274,19 @@ class OTPFlowTests(TestCase):
         with patch("accounts.views.otp_service.send_otp"):
             self._send_otp()
 
-        otp = self._latest_code_for("+15551234567")
+        otp = self._latest_code_for("+919100000005")
         otp.expires_at = timezone.now() - timezone.timedelta(minutes=1)
         otp.save(update_fields=["expires_at"])
 
         resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15551234567", "code": "123456"}
+            reverse("verify_otp"), {"mobile_number": "+919100000005", "code": "123456"}
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("expired", resp.json()["error"])
 
     def test_verify_without_pending_code_fails(self):
         resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15559990000", "code": "123456"}
+            reverse("verify_otp"), {"mobile_number": "+919100000015", "code": "123456"}
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("No pending code", resp.json()["error"])
@@ -306,7 +308,7 @@ class OTPFlowTests(TestCase):
         self.assertTrue(send_resp.json()["ok"])
 
         verify_resp = self.client.post(
-            reverse("verify_otp"), {"mobile_number": "+15551234567", "code": captured["code"]}
+            reverse("verify_otp"), {"mobile_number": "+919100000005", "code": captured["code"]}
         )
         self.assertTrue(verify_resp.json()["ok"])
 
@@ -314,7 +316,7 @@ class OTPFlowTests(TestCase):
             reverse("signup"),
             {
                 "full_name": "Real Flow Customer",
-                "mobile_number": "+15551234567",
+                "mobile_number": "+919100000005",
                 "email": "real.flow@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -435,7 +437,7 @@ class CustomerAdminAccessTests(TestCase):
             self.client,
             {
                 "full_name": "Test Customer",
-                "mobile_number": "+15551234567",
+                "mobile_number": "+919100000005",
                 "email": "test.customer@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -454,7 +456,7 @@ class CustomerAdminAccessTests(TestCase):
             reverse("account"),
             {
                 "full_name": "Test Customer",
-                "mobile_number": "+15551234567",
+                "mobile_number": "+919100000005",
                 "email": "test.customer@example.com",
                 "is_staff": "true",
                 "is_superuser": "true",
@@ -474,7 +476,7 @@ class CustomerAdminAccessTests(TestCase):
             self.client,
             {
                 "full_name": "Second Customer",
-                "mobile_number": "+15559998888",
+                "mobile_number": "+919100000018",
                 "email": "second.customer@example.com",
                 "password": "AnotherStrongPW123",
                 "confirm_password": "AnotherStrongPW123",
@@ -521,7 +523,7 @@ class AdminDashboardAndReportsTests(TestCase):
             self.client,
             {
                 "full_name": "Regular Customer",
-                "mobile_number": "+15556667777",
+                "mobile_number": "+919100000011",
                 "email": "regular.customer@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -543,7 +545,7 @@ class GlobalSearchTests(TestCase):
         self.client.login(username="searchadmin", password="AdminPW12345")
         target_user = User.objects.create_user("gina", "gina@example.com", "GinaPW12345")
         CustomerProfile.objects.create(
-            user=target_user, full_name="Gina Rodriguez", mobile_number="+15558889999"
+            user=target_user, full_name="Gina Rodriguez", mobile_number="+919100000014"
         )
 
     def test_search_finds_matching_customer(self):
@@ -557,7 +559,7 @@ class GlobalSearchTests(TestCase):
             self.client,
             {
                 "full_name": "Search Customer",
-                "mobile_number": "+15550009999",
+                "mobile_number": "+919100000002",
                 "email": "search.customer@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -573,7 +575,7 @@ class LoginCaseInsensitivityTests(TestCase):
             self.client,
             {
                 "full_name": "Case Test",
-                "mobile_number": "+15552223333",
+                "mobile_number": "+919100000006",
                 "email": "MixedCase@Example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -595,7 +597,7 @@ class LoginCaseInsensitivityTests(TestCase):
             self.client,
             {
                 "full_name": "Case Test Two",
-                "mobile_number": "+15552223344",
+                "mobile_number": "+919100000007",
                 "email": "casetwo@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -615,7 +617,7 @@ class AccountPageShowsOrdersTests(TestCase):
             self.client,
             {
                 "full_name": "Order Viewer",
-                "mobile_number": "+15556661111",
+                "mobile_number": "+919100000008",
                 "email": "order.viewer@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -635,7 +637,7 @@ class AccountPageShowsOrdersTests(TestCase):
             self.client,
             {
                 "full_name": "Order Viewer",
-                "mobile_number": "+15556661111",
+                "mobile_number": "+919100000008",
                 "email": "order.viewer@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -656,7 +658,7 @@ class AccountPageShowsOrdersTests(TestCase):
             self.client,
             {
                 "full_name": "Viewer One",
-                "mobile_number": "+15556661122",
+                "mobile_number": "+919100000009",
                 "email": "viewer.one@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -671,7 +673,7 @@ class AccountPageShowsOrdersTests(TestCase):
             self.client,
             {
                 "full_name": "Viewer Two",
-                "mobile_number": "+15556661133",
+                "mobile_number": "+919100000010",
                 "email": "viewer.two@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -687,7 +689,7 @@ class MobileNavAccountLinkTests(TestCase):
             self.client,
             {
                 "full_name": "Mobile Nav Tester",
-                "mobile_number": "+15557778899",
+                "mobile_number": "+919100000013",
                 "email": "mobile.nav@example.com",
                 "password": "SupErStrongPW123",
                 "confirm_password": "SupErStrongPW123",
@@ -755,13 +757,13 @@ class AdminBrandingPolishTests(TestCase):
             "brandadmin", "brandadmin@example.com", "AdminPW12345"
         )
 
-    def test_login_page_has_no_emoji_uses_real_logo_and_no_theme_toggle(self):
+    def test_login_page_uses_real_logo_no_emoji_and_no_theme_toggle(self):
         resp = self.client.get("/admin/login/")
         self.assertNotContains(resp, "\U0001F98B")  # butterfly emoji
         self.assertContains(resp, "butterfly.jpeg")
         self.assertNotContains(resp, 'class="theme-toggle"')
 
-    def test_dashboard_has_no_emoji_uses_real_logo_and_no_theme_toggle(self):
+    def test_dashboard_uses_real_logo_no_emoji_and_no_theme_toggle(self):
         self.client.login(username="brandadmin", password="AdminPW12345")
         resp = self.client.get(reverse("admin:index"))
         self.assertNotContains(resp, "\U0001F98B")
@@ -935,3 +937,61 @@ class MobileOverflowFixTests(TestCase):
         body = resp.content.decode()
         self.assertIn("min-width: 0", body)
         self.assertIn("overflow-x: hidden", body)
+
+
+class EnsureSuperuserCommandTests(TestCase):
+    """
+    Covers accounts/management/commands/ensure_superuser.py -- the
+    Shell-free superuser bootstrap for hosts like Render's free tier.
+    """
+
+    def test_creates_superuser_when_env_vars_set_and_none_exists(self):
+        from django.core.management import call_command
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "renderadmin",
+                "DJANGO_SUPERUSER_EMAIL": "renderadmin@example.com",
+                "DJANGO_SUPERUSER_PASSWORD": "SuperSecret123!",
+            },
+        ):
+            call_command("ensure_superuser")
+
+        user = User.objects.get(username="renderadmin")
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.check_password("SuperSecret123!"))
+
+    def test_does_nothing_when_env_vars_missing(self):
+        from django.core.management import call_command
+
+        with mock.patch.dict(os.environ, {}, clear=False):
+            for key in ("DJANGO_SUPERUSER_USERNAME", "DJANGO_SUPERUSER_EMAIL", "DJANGO_SUPERUSER_PASSWORD"):
+                os.environ.pop(key, None)
+            call_command("ensure_superuser")
+
+        self.assertFalse(User.objects.filter(is_superuser=True).exists())
+
+    def test_does_not_duplicate_or_error_when_superuser_already_exists(self):
+        from django.core.management import call_command
+
+        User.objects.create_superuser(
+            username="renderadmin", email="old@example.com", password="OldPassword123!"
+        )
+        with mock.patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "renderadmin",
+                "DJANGO_SUPERUSER_EMAIL": "renderadmin@example.com",
+                "DJANGO_SUPERUSER_PASSWORD": "NewPassword123!",
+            },
+        ):
+            call_command("ensure_superuser")  # should be a no-op, not raise IntegrityError
+
+        self.assertEqual(User.objects.filter(username="renderadmin").count(), 1)
+        user = User.objects.get(username="renderadmin")
+        # Confirms it really was a no-op: the ORIGINAL password still
+        # works, since this command must never reset an existing
+        # admin's password out from under them on a routine redeploy.
+        self.assertTrue(user.check_password("OldPassword123!"))

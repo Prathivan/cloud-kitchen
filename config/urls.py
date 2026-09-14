@@ -44,6 +44,7 @@ urlpatterns = [
 
     path("cart/", include("cart.urls")),
     path("orders/",include("orders.urls")),
+    path("delivery/", include("delivery.urls")),
 ]
 
 

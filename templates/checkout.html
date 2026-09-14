@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+{% block title %}Checkout | Butterfly Cloud Kitchen{% endblock %}
+{% block content %}
+
+<section class="page-hero">
+    <div class="container">
+        <span>Checkout</span>
+        <h1>Confirm Your Order</h1>
+        <p>Choose where this order goes, then place it.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container checkout-layout">
+
+        <form method="post" action="{% url 'checkout' %}" id="checkout-form" class="checkout-main">
+            {% csrf_token %}
+
+            <div class="checkout-block">
+                <h3>Delivery Address</h3>
+                {% if addresses %}
+                <div class="address-radio-list">
+                    {% for address in addresses %}
+                    <label class="address-radio-card {% if address == default_address %}is-selected{% endif %}">
+                        <input type="radio" name="address_id" value="{{ address.id }}"
+                               {% if address == default_address %}checked{% endif %}
+                               class="address-radio-input">
+                        <span class="address-radio-label-badge">{{ address.get_address_label_display }}</span>
+                        <strong>{{ address.full_name }}</strong> · {{ address.phone }}<br>
+                        <span class="muted-text">{{ address.short_display }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="muted-text">You don't have a saved address yet.</p>
+                {% endif %}
+                <a href="{% url 'address_add' %}?next={% url 'checkout_address' %}" class="secondary-link-btn">
+                    + Add New Address
+                </a>
+            </div>
+
+            <div class="checkout-block">
+                <h3>Deliver To</h3>
+                <div class="deliver-to-toggle">
+                    <label class="deliver-to-option is-selected">
+                        <input type="radio" name="deliver_to" value="self" checked id="deliver-to-self">
+                        Myself
+                    </label>
+                    <label class="deliver-to-option">
+                        <input type="radio" name="deliver_to" value="other" id="deliver-to-other">
+                        Someone Else
+                    </label>
+                </div>
+
+                <div class="deliver-to-self-summary" id="deliver-to-self-summary">
+                    <span class="muted-text">Recipient: {{ customer_name }} · {{ customer_phone }}</span>
+                </div>
+
+                <div class="deliver-to-other-fields" id="deliver-to-other-fields" style="display:none;">
+                    <div class="form-group">
+                        <label for="recipient_name">Recipient Name</label>
+                        <input type="text" name="recipient_name" id="recipient_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="recipient_phone">Recipient Mobile Number</label>
+                        <input type="text" name="recipient_phone" id="recipient_phone" placeholder="+91XXXXXXXXXX"
+                               inputmode="tel" pattern="^(\+91|91|0)?[6-9]\d{9}$"
+                               title="Enter a valid Indian mobile number (10 digits starting with 6-9, optionally prefixed with +91).">
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="checkout-block">
+                <h3>Delivery Instructions (optional)</h3>
+                <div class="form-group">
+                    <textarea name="delivery_instructions" rows="3" placeholder="e.g. Please call before delivery.">{% if default_address %}{{ default_address.delivery_instructions }}{% endif %}</textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="form-submit" id="place-order-btn" {% if not addresses %}disabled{% endif %}>
+                Place Order
+            </button>
+            {% if not addresses %}
+            <p class="field-error" style="text-align:center;">Add a delivery address above before placing your order.</p>
+            {% endif %}
+        </form>
+
+        <aside class="checkout-summary">
+            <h3>Order Summary</h3>
+            <ul class="checkout-summary-items">
+                {% for cart_item in cart_items %}
+                <li>
+                    <span>{{ cart_item.menu_item.name }} × {{ cart_item.quantity }}</span>
+                    <span>₹{{ cart_item.menu_item.effective_price|floatformat:2|intcomma }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="checkout-summary-row"><span>Subtotal</span><span>₹{{ subtotal|floatformat:2|intcomma }}</span></div>
+            <div class="checkout-summary-row"><span>Delivery Fee</span><span>₹{{ delivery_fee|floatformat:2|intcomma }}</span></div>
+            <div class="checkout-summary-row checkout-summary-total"><span>Total</span><span>₹{{ total|floatformat:2|intcomma }}</span></div>
+        </aside>
+
+    </div>
+</section>
+
+<script>
+  (function () {
+    var selfRadio = document.getElementById("deliver-to-self");
+    var otherRadio = document.getElementById("deliver-to-other");
+    var selfSummary = document.getElementById("deliver-to-self-summary");
+    var otherFields = document.getElementById("deliver-to-other-fields");
+    var recipientName = document.getElementById("recipient_name");
+    var recipientPhone = document.getElementById("recipient_phone");
+
+    function updateDeliverToUI() {
+      var isOther = otherRadio.checked;
+      otherFields.style.display = isOther ? "" : "none";
+      selfSummary.style.display = isOther ? "none" : "";
+      recipientName.required = isOther;
+      recipientPhone.required = isOther;
+      selfRadio.closest(".deliver-to-option").classList.toggle("is-selected", !isOther);
+      otherRadio.closest(".deliver-to-option").classList.toggle("is-selected", isOther);
+    }
+    selfRadio.addEventListener("change", updateDeliverToUI);
+    otherRadio.addEventListener("change", updateDeliverToUI);
+
+    document.querySelectorAll(".address-radio-input").forEach(function (input) {
+      input.addEventListener("change", function () {
+        document.querySelectorAll(".address-radio-card").forEach(function (card) {
+          card.classList.remove("is-selected");
+        });
+        input.closest(".address-radio-card").classList.add("is-selected");
+      });
+    });
+  })();
+</script>
+
+{% endblock %}

@@ -1,0 +1,36 @@
+# Secrets -- never commit your real .env, only .env.example
+.env
+
+# Local SQLite database
+db.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Django
+staticfiles/
+# NOTE: media/ is intentionally NOT ignored -- this project's existing
+# menu/offer/review images live there and need to be committed so they
+# actually ship with the deploy. Only new uploads made AFTER a deploy
+# (e.g. through the admin, on Render's free tier) are at risk of being
+# lost on restart -- see the "ephemeral filesystem" note in README.md's
+# deployment section. That's a hosting limitation, not something
+# .gitignore can fix.
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test/coverage artifacts
+.coverage
+htmlcov/

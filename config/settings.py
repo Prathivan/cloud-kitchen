@@ -43,6 +43,15 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
+# Render automatically injects RENDER_EXTERNAL_HOSTNAME with this
+# service's real *.onrender.com domain -- adding it here means
+# ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS need zero manual setup on Render
+# specifically. Manually-set ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS above
+# still apply too (e.g. once you point a custom domain at this site).
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 # Needed for any host behind a reverse proxy that terminates HTTPS for
 # you (Render, Railway, Heroku, etc.) -- without this, Django can't
 # tell the original request was HTTPS (it only sees plain HTTP from
@@ -58,6 +67,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # to a host not already implied by ALLOWED_HOSTS + the request's own
 # origin -- which is exactly the Render setup.
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
 
 
 # =========================
@@ -79,6 +90,7 @@ INSTALLED_APPS = [
     "menu",
     "cart",
     "orders",
+    "delivery",
 ]
 
 
@@ -148,12 +160,30 @@ WSGI_APPLICATION = "config.wsgi.application"
 # =========================
 #
 # Defaults to SQLite for now (works immediately, no server to install
-# or configure) so pre-order/other work isn't blocked on a Postgres
-# setup. Switching to Postgres later is a one-line change: set
-# DB_ENGINE=postgres in .env (see .env.example) along with DB_NAME/
-# DB_USER/DB_PASSWORD/DB_HOST/DB_PORT -- no code changes needed.
+# or configure). Two ways to switch to Postgres, no code changes
+# either way:
+#   (a) Set DATABASE_URL alone (e.g. Render auto-injects this when you
+#       link a Postgres database to this web service) -- this is all
+#       Render needs, nothing else to configure.
+#   (b) Set DB_ENGINE=postgres plus DB_NAME/DB_USER/DB_PASSWORD/
+#       DB_HOST/DB_PORT separately (e.g. local Postgres, see .env.example).
+# DATABASE_URL, if present, always takes priority.
 
-if os.environ.get("DB_ENGINE", "sqlite") == "postgres":
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+if DATABASE_URL:
+    # dj_database_url parses a URL like
+    # postgres://user:password@host:port/dbname into the same dict
+    # shape Django's DATABASES setting expects below.
+    import dj_database_url
+
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        )
+    }
+elif os.environ.get("DB_ENGINE", "sqlite") == "postgres":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -280,3 +310,15 @@ MAILERS = {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+
+# =========================
+# GOOGLE MAPS
+# =========================
+# Used by the delivery-address picker (templates/delivery_address_form.html)
+# for location search, the draggable pin, and reverse geocoding. Never
+# hardcode a real key here -- set GOOGLE_MAPS_API_KEY in your .env. If
+# it's unset, the map simply doesn't load and the address form falls
+# back to manual text entry only (see that template's JS for the
+# fallback check) -- nothing else breaks.
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")

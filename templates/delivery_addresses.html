@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}My Addresses | Butterfly Cloud Kitchen{% endblock %}
+{% block content %}
+
+<section class="page-hero">
+    <div class="container">
+        <span>Delivery</span>
+        <h1>My Addresses</h1>
+        <p>Save the places you order to most often, and pick one at checkout.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+
+        <a href="{% url 'address_add' %}{% if next_url %}?next={{ next_url }}{% endif %}" class="primary-btn address-add-btn">
+            + Add New Address
+        </a>
+
+        {% if addresses %}
+        <div class="address-grid">
+            {% for address in addresses %}
+            <div class="address-card {% if address.is_default %}is-default{% endif %}">
+                <div class="address-card-head">
+                    <span class="address-label-badge address-label-{{ address.address_label }}">
+                        {{ address.get_address_label_display }}
+                    </span>
+                    {% if address.is_default %}<span class="address-default-badge">Default</span>{% endif %}
+                </div>
+
+                <p class="address-name">{{ address.full_name }} · {{ address.phone }}</p>
+                <p class="address-lines">
+                    {{ address.address_line_1 }}{% if address.address_line_2 %}, {{ address.address_line_2 }}{% endif %}<br>
+                    {% if address.building or address.apartment or address.floor %}
+                        {{ address.building }}{% if address.apartment %}, Apt {{ address.apartment }}{% endif %}{% if address.floor %}, Floor {{ address.floor }}{% endif %}<br>
+                    {% endif %}
+                    {{ address.area }}{% if address.area and address.city %}, {% endif %}{{ address.city }}, {{ address.state }} {{ address.postal_code }}<br>
+                    {{ address.country }}
+                </p>
+                {% if address.delivery_instructions %}
+                <p class="address-instructions">📝 {{ address.delivery_instructions }}</p>
+                {% endif %}
+                {% if address.latitude and address.longitude %}
+                <a href="https://www.google.com/maps/search/?api=1&query={{ address.latitude }},{{ address.longitude }}"
+                   target="_blank" rel="noopener" class="address-map-link">📍 View on Google Maps</a>
+                {% endif %}
+
+                <div class="address-card-actions">
+                    <a href="{% url 'address_edit' address.id %}{% if next_url %}?next={{ next_url }}{% endif %}" class="address-action-btn">Edit</a>
+                    {% if not address.is_default %}
+                    <form method="post" action="{% url 'address_set_default' address.id %}" class="address-inline-form">
+                        {% csrf_token %}
+                        <button type="submit" class="address-action-btn">Set as Default</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="{% url 'address_delete' address.id %}" class="address-inline-form"
+                          onsubmit="return confirm('Delete this address?');">
+                        {% csrf_token %}
+                        <button type="submit" class="address-action-btn address-action-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="cart-empty">
+            <div class="empty-icon">📍</div>
+            <h3>No saved addresses yet</h3>
+            <p>Add a delivery address to make checkout faster next time.</p>
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+
+{% endblock %}

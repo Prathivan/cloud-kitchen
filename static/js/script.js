@@ -105,6 +105,7 @@ function handleCartConflict(form, formData, data, onResolved) {
   showSiteModal(
     data.error + " Clear your current cart and continue with this item?",
     {
+      okLabel: "Clear Cart",
       onOk: function () {
         formData.set("force", "1");
         postCartAction(form.getAttribute("action"), formData)
@@ -286,7 +287,16 @@ function recalcCartSummary() {
   if (subtotalEl) subtotalEl.textContent = "\u20b9" + formatMoney(subtotal);
   if (deliveryEl) deliveryEl.textContent = "\u20b9" + formatMoney(deliveryFee);
   if (totalEl) totalEl.textContent = "\u20b9" + formatMoney(total);
-  if (checkoutBtn) checkoutBtn.disabled = rows.length === 0;
+  if (checkoutBtn) {
+    var cartIsEmpty = rows.length === 0;
+    // checkoutBtn is a <button disabled> only while the cart is empty
+    // server-side-rendered; once it has items it's an <a> (see
+    // templates/cart.html), where .disabled does nothing on its own --
+    // toggle a class + pointer-events too so "remove last item" via
+    // AJAX still blocks navigating to checkout without a full reload.
+    checkoutBtn.disabled = cartIsEmpty;
+    checkoutBtn.classList.toggle("is-disabled-link", cartIsEmpty);
+  }
 
   if (rows.length === 0 && !tbody.querySelector(".empty-cart")) {
     var cartSection = document.querySelector(".cart-section");
@@ -498,6 +508,7 @@ function showSiteModal(message, options) {
 
   messageEl.textContent = message;
   cancelBtn.style.display = options.okOnly ? "none" : "";
+  okBtn.textContent = options.okLabel || "OK";
   overlay.hidden = false;
 
   function cleanup() {
