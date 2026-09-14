@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from .models import AdminNotification, Order, OrderItem
 
@@ -123,21 +124,51 @@ class OrderAdmin(admin.ModelAdmin):
         "id",
         "user",
         "order_type_badge",
+        "delivery_summary",
         "status_badge",
         "item_count",
         "formatted_total",
         "created_at",
         "preorder_datetime_display",
         "quick_action",
+        "print_link",
     )
     list_filter = (OrderTypeFilter, "status", "created_at")
-    search_fields = ("=id", "user__email", "user__username", "user__customer_profile__mobile_number")
+    search_fields = (
+        "=id", "user__email", "user__username", "user__customer_profile__mobile_number",
+        "customer_name", "customer_phone", "recipient_name", "recipient_phone",
+    )
     date_hierarchy = "created_at"
     readonly_fields = (
-        "user", "total_amount", "created_at",
+        "user", "total_amount", "delivery_fee", "created_at",
         "confirmed_at", "preparing_at", "ready_at", "out_for_delivery_at",
         "delivered_at", "cancelled_at",
         "is_preorder", "preorder_datetime", "preorder_reminder_sent",
+        "delivery_type", "customer_name", "customer_phone",
+        "recipient_name", "recipient_phone", "delivery_address",
+        "address_line_1", "address_line_2", "building", "apartment", "floor",
+        "street", "area", "city", "state", "country", "postal_code",
+        "formatted_address", "latitude", "longitude", "google_place_id",
+        "delivery_instructions", "google_maps_link",
+    )
+    fieldsets = (
+        (None, {"fields": ("user", "status", "is_preorder", "preorder_datetime", "preorder_reminder_sent")}),
+        ("Totals", {"fields": ("total_amount", "delivery_fee", "created_at")}),
+        ("Status Timestamps", {
+            "fields": ("confirmed_at", "preparing_at", "ready_at", "out_for_delivery_at", "delivered_at", "cancelled_at"),
+        }),
+        ("Delivery — Who", {
+            "fields": ("delivery_type", "customer_name", "customer_phone", "recipient_name", "recipient_phone"),
+        }),
+        ("Delivery — Where", {
+            "fields": (
+                "delivery_address",
+                "address_line_1", "address_line_2", "building", "apartment", "floor",
+                "street", "area", "city", "state", "country", "postal_code",
+                "formatted_address", "latitude", "longitude", "google_place_id",
+                "google_maps_link", "delivery_instructions",
+            ),
+        }),
     )
     inlines = [OrderItemInline]
     actions = [accept_orders, start_preparing, mark_ready, dispatch_orders, complete_delivery, cancel_orders]
@@ -186,6 +217,35 @@ class OrderAdmin(admin.ModelAdmin):
             color, obj.get_status_display(),
         )
 
+    @admin.display(description="Deliver To")
+    def delivery_summary(self, obj):
+        if obj.delivery_type == obj.DELIVERY_TYPE_OTHER:
+            return format_html(
+                '{} <span style="color:#8a5cf6;font-weight:700;">({})</span><br><span style="color:#52616b;font-size:11px;">{}</span>',
+                obj.recipient_name or "—", "Other", obj.recipient_phone or "—",
+            )
+        return format_html(
+            '{} <span style="color:#2e9e5b;font-weight:700;">(Self)</span><br><span style="color:#52616b;font-size:11px;">{}</span>',
+            obj.recipient_name or obj.customer_name or "—", obj.recipient_phone or obj.customer_phone or "—",
+        )
+
+    @admin.display(description="")
+    def print_link(self, obj):
+        url = reverse("admin:print_order", args=[obj.id])
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener" '
+            'style="border:0;background:#52616b;color:#fff;font-size:11px;font-weight:700;'
+            'padding:5px 10px;border-radius:8px;text-decoration:none;">🖨 Print</a>',
+            url,
+        )
+
+    @admin.display(description="Google Maps")
+    def google_maps_link(self, obj):
+        url = obj.google_maps_url()
+        if not url:
+            return "No pin captured for this order."
+        return format_html('<a href="{}" target="_blank" rel="noopener">📍 View on Google Maps</a>', url)
+
     @admin.display(description="Action")
     def quick_action(self, obj):
         """
@@ -224,17 +284,50 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(AdminNotification)
 class AdminNotificationAdmin(admin.ModelAdmin):
-    list_display = ("message", "notification_type", "order_link", "is_read", "created_at")
+    """
+    AdminNotification rows are only ever created by the backend (see
+    orders/reminders.py) -- there's no legitimate reason for a staff
+    member to hand-create one, so "Add" is disabled entirely (removes
+    the "+ Add Admin Notification" button and blocks the add URL
+    directly, not just the button).
+    """
+
+    list_display = ("message", "notification_type", "order_link", "read_status_button", "created_at")
     list_filter = ("notification_type", "is_read")
     readonly_fields = ("notification_type", "message", "order", "created_at")
     actions = ["mark_as_read"]
+
+    def has_add_permission(self, request):
+        return False
 
     @admin.display(description="Order")
     def order_link(self, obj):
         if not obj.order_id:
             return "—"
         url = reverse("admin:orders_order_change", args=[obj.order_id])
-        return format_html('<a href="{}">#ORD{:05d}</a>', url, obj.order_id)
+        # Pre-format the order number into a plain string BEFORE handing
+        # it to format_html: format_html escapes every positional arg
+        # into a SafeString first, and a numeric format spec like
+        # `{:05d}` fails once the value is already a string, not an int
+        # (this was the source of "Unknown format code 'd' for object
+        # of type SafeString").
+        order_number = f"#ORD{obj.order_id:05d}"
+        return format_html('<a href="{}">{}</a>', url, order_number)
+
+    @admin.display(description="Is Read")
+    def read_status_button(self, obj):
+        # One-click toggle, same pattern as OrderAdmin.quick_action --
+        # no need to select a checkbox + pick the bulk action + Run
+        # just to dismiss a single notification.
+        if obj.is_read:
+            return mark_safe('<span style="color:#2e9e5b;font-weight:700;">✓ Read</span>')
+        changelist_url = reverse("admin:orders_adminnotification_changelist")
+        url = reverse("admin:mark_notification_read", args=[obj.id]) + f"?next={changelist_url}"
+        return format_html(
+            '<a href="{}" style="border:0;background:#2b9ed8;color:#fff;font-size:11px;font-weight:700;'
+            'padding:5px 10px;border-radius:8px;text-decoration:none;">Mark Read</a>',
+            url,
+        )
 
     @admin.action(description="Mark selected notifications as read")
     def mark_as_read(self, request, queryset):

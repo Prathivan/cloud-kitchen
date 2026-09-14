@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Order #{{ order.id }} — Print</title>
+<style>
+    /* Deliberately self-contained (no static/css/style.css) -- this
+       page must never inherit the site's nav/fonts/colors, since it's
+       meant to be printed on a thermal printer or plain paper by
+       kitchen/delivery staff, not viewed as a website page. */
+    * { box-sizing: border-box; }
+    body {
+        font-family: "Courier New", Courier, monospace;
+        color: #000;
+        background: #fff;
+        max-width: 320px;
+        margin: 0 auto;
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    .center { text-align: center; }
+    .bold { font-weight: 700; }
+    .divider { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+    .row { display: flex; justify-content: space-between; gap: 8px; }
+    .section-title { font-weight: 700; margin: 10px 0 4px; text-transform: uppercase; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+    td { padding: 2px 0; vertical-align: top; }
+    .qty-col { text-align: right; white-space: nowrap; }
+    .brand-title { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+    .greeting { font-size: 14px; font-weight: 700; margin: 10px 0; }
+    .ordered-by-note { font-size: 11px; color: #444; }
+    .print-toolbar {
+        max-width: 320px;
+        margin: 0 auto 12px;
+        text-align: center;
+    }
+    .print-toolbar button {
+        background: #2b9ed8;
+        color: #fff;
+        border: 0;
+        padding: 10px 22px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .thanks { margin-top: 12px; }
+
+    /* This is what actually matters for the printed output: hide the
+       on-screen-only "Print" button, and drop margins so the receipt
+       isn't wasting paper/thermal-roll space on browser page margins. */
+    @media print {
+        .print-toolbar { display: none; }
+        body { max-width: 100%; padding: 4px; }
+        @page { margin: 4mm; }
+    }
+</style>
+</head>
+<body>
+
+    <div class="print-toolbar">
+        <button type="button" onclick="window.print();">🖨 Print</button>
+    </div>
+
+    <div class="center">
+        <div class="brand-title">BUTTERFLY CLOUD KITCHEN</div>
+    </div>
+    <hr class="divider">
+
+    <div class="center bold">ORDER #{{ order.id }}</div>
+    <div class="row">
+        <span>Date:</span><span>{{ order.created_at|date:"d M Y" }}</span>
+    </div>
+    <div class="row">
+        <span>Time:</span><span>{{ order.created_at|date:"h:i A" }}</span>
+    </div>
+    {% if order.is_preorder and order.preorder_datetime %}
+    <div class="row">
+        <span>Pre-Order For:</span><span>{{ order.preorder_datetime|date:"d M, h:i A" }}</span>
+    </div>
+    {% endif %}
+    <hr class="divider">
+
+    <!-- Greeting is addressed to whoever is actually receiving the
+         order (recipient), not necessarily the account holder -- this
+         page is for kitchen/delivery staff handing food to a real
+         person at the door. -->
+    <div class="greeting">Hi {{ order.recipient_name|default:"there" }}, 👋</div>
+    <div class="ordered-by-note">
+        Ordered by {{ order.customer_name|default:"—" }} ({{ order.masked_customer_phone }})
+    </div>
+
+    <div class="section-title">Deliver To</div>
+    <div class="row"><span>Name</span><span>{{ order.recipient_name|default:"—" }}</span></div>
+    <div class="row"><span>Phone</span><span>{{ order.recipient_phone|default:"—" }}</span></div>
+
+    {% if order.address_line_1 or order.formatted_address %}
+    <div class="section-title">Address</div>
+    {% if order.formatted_address %}
+        <div>{{ order.formatted_address }}</div>
+    {% else %}
+        <div>
+            {{ order.address_line_1 }}{% if order.address_line_2 %}, {{ order.address_line_2 }}{% endif %}<br>
+            {% if order.building %}{{ order.building }}{% if order.apartment %}, Apt {{ order.apartment }}{% endif %}{% if order.floor %}, Floor {{ order.floor }}{% endif %}<br>{% endif %}
+            {{ order.area }}{% if order.area and order.city %}, {% endif %}{{ order.city }}, {{ order.state }} {{ order.postal_code }}<br>
+            {{ order.country }}
+        </div>
+    {% endif %}
+    {% endif %}
+
+    {% if order.google_maps_url %}
+    <div class="section-title">Location</div>
+    <div>Google Maps Location: {{ order.latitude }}, {{ order.longitude }}</div>
+    {% endif %}
+
+    <hr class="divider">
+    <div class="section-title">Items</div>
+    <table>
+        {% for item in order.items.all %}
+        <tr>
+            <td>{{ item.item_name }}</td>
+            <td class="qty-col">x {{ item.quantity }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <hr class="divider">
+
+    <div class="row"><span>Subtotal</span><span>₹{{ order.items_subtotal|floatformat:2 }}</span></div>
+    <div class="row"><span>Delivery</span><span>₹{{ order.delivery_fee|floatformat:2 }}</span></div>
+    <div class="row bold"><span>Total</span><span>₹{{ order.total_amount|floatformat:2 }}</span></div>
+    <hr class="divider">
+
+    {% if order.delivery_instructions %}
+    <div class="section-title">Delivery Instructions</div>
+    <div>{{ order.delivery_instructions }}</div>
+    <hr class="divider">
+    {% endif %}
+
+    <div class="center thanks">
+        <div class="bold">THANK YOU 🙏</div>
+    </div>
+
+</body>
+</html>

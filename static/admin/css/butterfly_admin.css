@@ -172,11 +172,48 @@ div.breadcrumbs a {
 }
 
 /* ---------- Tables / changelist ---------- */
+#changelist {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(36, 50, 61, 0.06);
+    border: 1px solid var(--border-color);
+}
+
+#changelist table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
 #changelist table thead th {
     background: #eef7fc;
+    color: var(--body-loud-color);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #d9edf7;
 }
+
+#changelist table tbody td,
+#changelist table tbody th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eef2f4;
+    font-size: 13px;
+}
+
+#changelist table tbody tr:last-child td,
+#changelist table tbody tr:last-child th {
+    border-bottom: 0;
+}
+
+#changelist table tbody tr:nth-child(even) {
+    background: #fbfdfe;
+}
+
 #changelist table tbody tr:hover {
-    background: #f7fbfd;
+    background: #f0f8fc;
 }
 #changelist-filter {
     border-radius: 14px;
@@ -311,4 +348,141 @@ body.login {
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
+}
+
+/* ===========================================================
+   Collapsible "Filter" button (site-wide, every changelist)
+   ---------------------------------------------------------
+   Django's admin renders the filter sidebar as an always-visible
+   <search id="changelist-filter"> block. This turns it into a
+   modern slide-in panel toggled by a "Filter" button, injected by
+   the small script in templates/admin/base_site.html's extrabody
+   block -- nothing here needs to change per app/model, it applies
+   automatically to every changelist that has any list_filter set.
+   =========================================================== */
+
+#changelist-filter {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    bottom: auto !important;
+    height: 100vh !important;
+    width: min(320px, 88vw) !important;
+    max-width: none !important;
+    margin: 0 !important;
+    z-index: 1200 !important;
+    overflow-y: auto !important;
+    box-shadow: -8px 0 28px rgba(20, 30, 40, 0.18);
+    transform: translateX(100%) !important;
+    transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+    border-radius: 0;
+    padding: 20px 18px 40px;
+    display: block !important;
+}
+
+body.bck-filter-open #changelist-filter {
+    transform: translateX(0) !important;
+}
+
+.bck-filter-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 30, 0.35);
+    z-index: 1190;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+}
+
+body.bck-filter-open .bck-filter-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Fixed-position floating button, deliberately NOT relying on where
+   Django happens to insert #changelist-filter in the DOM (that varies
+   across pages/templates and was landing awkwardly above the search
+   bar before) -- this always sits in the same, predictable spot,
+   styled with the app's own primary color rather than a default
+   button. */
+.bck-filter-toggle-btn {
+    position: fixed;
+    top: 96px;
+    right: 24px;
+    z-index: 1100;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary, #2b9ed8) !important;
+    color: #fff !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    padding: 10px 18px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(43, 158, 216, 0.4);
+}
+
+.bck-filter-toggle-btn:hover {
+    background: #1878ad !important;
+}
+
+@media (max-width: 767px) {
+    /* Django's own responsive.css restacks the header taller on
+       narrow screens -- push the button down a bit further so it
+       never overlaps the branding/user-tools row. */
+    .bck-filter-toggle-btn {
+        top: auto;
+        bottom: 20px;
+        right: 16px;
+    }
+}
+
+.bck-filter-close-btn {
+    position: sticky;
+    top: 0;
+    float: right;
+    background: none;
+    border: 0;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #52616b;
+    padding: 4px 6px;
+}
+
+/* No JS / filter panel not present on this page (e.g. no list_filter
+   set) -- the toggle button injected by JS is simply never added, so
+   nothing extra to hide here. */
+
+/* Reclaim the full table width. Django's own base.css reserves a
+   300px right margin on the content area (.colMS) to make room for
+   the OLD always-visible sidebar layout of #changelist-filter -- now
+   that the filter is `position: fixed` (out of normal document flow,
+   see #changelist-filter above), that reserved margin is just empty
+   unused space, which is why changelist tables were rendering
+   narrower than the actual available screen width. */
+.colMS {
+    margin-right: 0 !important;
+}
+
+#content-related {
+    float: none !important;
+    width: auto !important;
+    margin-right: 0 !important;
+    position: static !important;
+}
+
+/* This is the REAL reason the results table was still narrower than
+   the full screen even after the fixes above: modern Django (5.1+)
+   replaced the old float-based sidebar layout with this flexbox rule,
+   which reserves 270px of width purely because #changelist-filter
+   EXISTS in the DOM -- :has() checks presence, not visual position,
+   so making the filter `position: fixed` (see above) didn't stop this
+   rule from still reserving the space for it. */
+#changelist .changelist-form-container:has(#changelist-filter) > div {
+    max-width: none !important;
+    width: 100% !important;
 }

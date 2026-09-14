@@ -16,3 +16,58 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/css/butterfly_admin.css' %}">
 {% endblock %}
+
+{% block extrabody %}
+<script>
+(function () {
+  // Runs on EVERY admin page (this is base_site.html, extended by
+  // every admin template) -- but only actually does anything on
+  // changelist pages that have a filter sidebar to begin with.
+  document.addEventListener("DOMContentLoaded", function () {
+    var filterPanel = document.getElementById("changelist-filter");
+    if (!filterPanel) return;
+
+    // Close button, added inside the panel itself (top-right, so it
+    // reads naturally as "close this panel" rather than a page action).
+    var closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "bck-filter-close-btn";
+    closeBtn.setAttribute("aria-label", "Close filters");
+    closeBtn.textContent = "✕";
+    filterPanel.insertBefore(closeBtn, filterPanel.firstChild);
+
+    // Semi-transparent backdrop, click-to-close.
+    var backdrop = document.createElement("div");
+    backdrop.className = "bck-filter-backdrop";
+    document.body.appendChild(backdrop);
+
+    // The actual "Filter" button that opens the panel. Appended
+    // directly to <body> and positioned entirely via CSS (fixed,
+    // top-right) rather than inserted next to the filter panel in the
+    // DOM -- that previous approach landed it in an unpredictable spot
+    // depending on each page's markup (it was appearing above the
+    // search bar on some pages). Fixed positioning makes it land in
+    // the same place on every changelist, every time.
+    var toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "bck-filter-toggle-btn";
+    toggleBtn.innerHTML = "&#128269; Filter";
+    document.body.appendChild(toggleBtn);
+
+    function openPanel() {
+      document.body.classList.add("bck-filter-open");
+    }
+    function closePanel() {
+      document.body.classList.remove("bck-filter-open");
+    }
+
+    toggleBtn.addEventListener("click", openPanel);
+    closeBtn.addEventListener("click", closePanel);
+    backdrop.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closePanel();
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -37,11 +37,14 @@ urlpatterns = [
 
     path("login/", views.login_view, name="login"),
     path("signup/", views.signup_view, name="signup"),
+    path("signup/send-otp/", views.send_otp_view, name="send_otp"),
+    path("signup/verify-otp/", views.verify_otp_view, name="verify_otp"),
     path("logout/", views.logout_view, name="logout"),
     path("account/", views.account_view, name="account"),
 
     path("cart/", include("cart.urls")),
     path("orders/",include("orders.urls")),
+    path("delivery/", include("delivery.urls")),
 ]
 
 

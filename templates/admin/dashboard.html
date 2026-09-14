@@ -64,7 +64,13 @@ a { text-decoration: none; color: inherit; }
     padding: 22px 20px;
     border-bottom: 1px solid var(--border);
 }
-.bck-sidebar-brand img { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex: 0 0 32px; }
+.bck-sidebar-brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex: 0 0 32px;
+}
 .bck-sidebar-brand strong { display: block; color: var(--dark); font-size: 16px; }
 .bck-sidebar-brand span { display: block; font-size: 11px; color: var(--primary); font-weight: 700; }
 
@@ -400,7 +406,7 @@ table.bck-table td { padding: 10px; border-bottom: 1px solid #f2f6f8; vertical-a
 
 <aside class="bck-sidebar" id="bckSidebar">
     <div class="bck-sidebar-brand">
-        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="">
+        <img src="{% static 'images/icons/butterfly.jpeg' %}" alt="" class="bck-sidebar-brand-icon">
         <div>
             <strong>Butterfly Admin</strong>
             <span>Kitchen Management</span>

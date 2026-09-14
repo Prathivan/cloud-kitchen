@@ -39,7 +39,13 @@ class CheckoutFlowTests(TestCase):
 
         order = Order.objects.get(user=self.user)
         self.assertEqual(order.status, Order.STATUS_PENDING)
-        self.assertEqual(order.total_amount, Decimal("180.00") * 3)
+        # total_amount now includes the flat delivery fee (see
+        # Order.delivery_fee), matching what the cart page already
+        # showed the customer before placing this order -- previously
+        # this field only summed item prices, silently under-counting
+        # by the delivery fee.
+        self.assertEqual(order.total_amount, (Decimal("180.00") * 3) + order.delivery_fee)
+        self.assertEqual(order.items_subtotal(), Decimal("180.00") * 3)
 
         item = OrderItem.objects.get(order=order)
         self.assertEqual(item.quantity, 3)
@@ -392,13 +398,14 @@ class PreorderReminderTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("preorder_bob", password="pw12345!")
 
-    def _make_preorder(self, hours_from_now, reminder_sent=False):
+    def _make_preorder(self, hours_from_now, reminder_sent=False, **extra):
         order = Order.objects.create(
             user=self.user,
             status=Order.STATUS_CONFIRMED,
             is_preorder=True,
             preorder_datetime=timezone.now() + timezone.timedelta(hours=hours_from_now),
             preorder_reminder_sent=reminder_sent,
+            **extra,
         )
         return order
 
@@ -432,3 +439,355 @@ class PreorderReminderTests(TestCase):
         created_again = send_due_preorder_reminders()
 
         self.assertEqual(created_again, 0)
+
+    def test_reminder_notifies_the_customer_not_just_admin(self):
+        """
+        Regression test: previously, a due pre-order only created an
+        AdminNotification for staff -- the customer was never actually
+        told their pre-order was coming up. Confirms the customer-facing
+        notification now fires too, via the same
+        orders.notifications.notify_order_recipient every other order
+        notification will eventually use.
+        """
+        from unittest.mock import patch
+
+        order = self._make_preorder(
+            hours_from_now=0.5,
+            customer_name="Priya", customer_phone="+919100000004",
+            recipient_name="Priya", recipient_phone="+919100000004",
+        )
+        with patch("orders.reminders.notify_order_recipient") as mock_notify:
+            from orders.reminders import send_due_preorder_reminders
+            send_due_preorder_reminders()
+
+        mock_notify.assert_called_once()
+        called_order, called_message = mock_notify.call_args[0]
+        self.assertEqual(called_order.id, order.id)
+        self.assertIn(f"ORD{order.id:05d}", called_message)
+
+    def test_reminder_notifies_the_recipient_not_the_account_holder_for_someone_else_orders(self):
+        """
+        A "Someone Else" pre-order must notify the RECIPIENT's phone,
+        never the account holder's own phone -- same rule as every
+        other order notification (see orders/notifications.py).
+        """
+        from unittest.mock import patch
+
+        order = self._make_preorder(
+            hours_from_now=0.5,
+            delivery_type=Order.DELIVERY_TYPE_OTHER,
+            customer_name="Priya", customer_phone="+919100000004",
+            recipient_name="Mohammed", recipient_phone="+919100000018",
+        )
+        with patch("orders.reminders.notify_order_recipient") as mock_notify:
+            from orders.reminders import send_due_preorder_reminders
+            send_due_preorder_reminders()
+
+        called_order, _ = mock_notify.call_args[0]
+        self.assertEqual(called_order.recipient_phone, "+919100000018")
+        self.assertNotEqual(called_order.recipient_phone, called_order.customer_phone)
+
+    def test_reminder_console_stub_actually_prints_for_the_recipient(self):
+        """
+        End-to-end (no mocking): confirms the real notify_order_recipient
+        console stub -- not just that it was called -- fires with the
+        recipient's phone number for a due pre-order.
+        """
+        from io import StringIO
+        import sys
+        from orders.reminders import send_due_preorder_reminders
+
+        self._make_preorder(
+            hours_from_now=0.5,
+            recipient_name="Sara", recipient_phone="+919100000012",
+        )
+        captured = StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = captured
+        try:
+            send_due_preorder_reminders()
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("+919100000012", output)
+        self.assertIn("ORDER NOTIFICATION STUB", output)
+
+
+class DeliverySnapshotTests(TestCase):
+    """
+    Covers section 3/4/6/7 of the delivery feature: SELF vs OTHER
+    recipient handling, that the order snapshot is frozen at checkout
+    time (never re-read from the live saved address afterwards), and
+    that the notification-destination helper reads recipient_phone.
+    """
+
+    def setUp(self):
+        from delivery.models import DeliveryAddress
+        from accounts.models import CustomerProfile
+
+        self.user = User.objects.create_user("ahmed", password="pw12345!", email="ahmed@example.com")
+        CustomerProfile.objects.create(user=self.user, full_name="Ahmed", mobile_number="+919100000003")
+        category = Category.objects.create(name="Mains")
+        self.item = MenuItem.objects.create(
+            category=category, name="Chicken Biryani", price="150.00", is_available=True,
+        )
+        self.address = DeliveryAddress.objects.create(
+            user=self.user, full_name="Ahmed", phone="+919100000003",
+            address_line_1="Villa 25, Street 10", area="Al Rawdah", city="Jeddah",
+            state="Makkah", country="Saudi Arabia", postal_code="21589",
+            latitude="21.543300", longitude="39.172800", is_default=True,
+        )
+        self.client.force_login(self.user)
+
+    def _checkout(self, **extra_post):
+        CartItem.objects.create(user=self.user, menu_item=self.item, quantity=2)
+        payload = {"address_id": self.address.id}
+        payload.update(extra_post)
+        self.client.post(reverse("checkout"), payload)
+        return Order.objects.filter(user=self.user).latest("created_at")
+
+    def test_myself_order_uses_customer_as_recipient(self):
+        order = self._checkout(deliver_to="self")
+        self.assertEqual(order.delivery_type, Order.DELIVERY_TYPE_SELF)
+        self.assertEqual(order.recipient_name, "Ahmed")
+        self.assertEqual(order.recipient_phone, "+919100000003")
+        self.assertEqual(order.customer_phone, "+919100000003")
+
+    def test_someone_else_order_stores_different_recipient(self):
+        order = self._checkout(
+            deliver_to="other", recipient_name="Mohammed", recipient_phone="+919100000016",
+        )
+        self.assertEqual(order.delivery_type, Order.DELIVERY_TYPE_OTHER)
+        self.assertEqual(order.recipient_name, "Mohammed")
+        self.assertEqual(order.recipient_phone, "+919100000016")
+        # The account holder's own phone is untouched and unaffected.
+        self.assertEqual(order.customer_phone, "+919100000003")
+        self.assertEqual(order.customer_name, "Ahmed")
+
+    def test_two_orders_can_have_different_recipients(self):
+        order_1 = self._checkout(deliver_to="self")
+        order_2 = self._checkout(deliver_to="other", recipient_name="Sara", recipient_phone="+919100000017")
+        self.assertNotEqual(order_1.recipient_phone, order_2.recipient_phone)
+        self.assertEqual(order_1.recipient_phone, "+919100000003")
+        self.assertEqual(order_2.recipient_phone, "+919100000017")
+
+    def test_someone_else_without_recipient_details_is_rejected(self):
+        CartItem.objects.create(user=self.user, menu_item=self.item, quantity=1)
+        resp = self.client.post(
+            reverse("checkout"), {"address_id": self.address.id, "deliver_to": "other"}
+        )
+        self.assertRedirects(resp, reverse("checkout_address"))
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+
+    def test_someone_else_with_invalid_recipient_phone_is_rejected(self):
+        """
+        Regression test: previously only checked that recipient_phone
+        was non-empty, never that it was actually a valid Indian
+        mobile number -- something like "44323" was silently accepted
+        and stored on the order as-is.
+        """
+        CartItem.objects.create(user=self.user, menu_item=self.item, quantity=1)
+        resp = self.client.post(
+            reverse("checkout"),
+            {
+                "address_id": self.address.id,
+                "deliver_to": "other",
+                "recipient_name": "Prathivan",
+                "recipient_phone": "44323",
+            },
+        )
+        self.assertRedirects(resp, reverse("checkout_address"))
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+
+    def test_order_snapshots_address_fields_at_checkout(self):
+        order = self._checkout(deliver_to="self")
+        self.assertEqual(order.address_line_1, "Villa 25, Street 10")
+        self.assertEqual(order.city, "Jeddah")
+        self.assertEqual(str(order.latitude), "21.543300")
+        self.assertEqual(order.delivery_address_id, self.address.id)
+
+    def test_editing_saved_address_does_not_change_past_order(self):
+        order = self._checkout(deliver_to="self")
+        self.address.address_line_1 = "New Villa 99"
+        self.address.city = "Riyadh"
+        self.address.save()
+
+        order.refresh_from_db()
+        self.assertEqual(order.address_line_1, "Villa 25, Street 10")
+        self.assertEqual(order.city, "Jeddah")
+
+    def test_deleting_saved_address_does_not_change_past_order(self):
+        order = self._checkout(deliver_to="self")
+        self.address.delete()
+
+        order.refresh_from_db()
+        self.assertEqual(order.address_line_1, "Villa 25, Street 10")
+        self.assertIsNone(order.delivery_address_id)
+
+    def test_checkout_without_address_selection_still_works(self):
+        # Backward-compat path: someone posts to `checkout` directly
+        # (as the button did before this feature existed), with no
+        # address_id/deliver_to at all.
+        CartItem.objects.create(user=self.user, menu_item=self.item, quantity=1)
+        resp = self.client.post(reverse("checkout"))
+        self.assertRedirects(resp, reverse("my_orders"))
+        order = Order.objects.get(user=self.user)
+        self.assertEqual(order.delivery_type, Order.DELIVERY_TYPE_SELF)
+        self.assertEqual(order.recipient_phone, "+919100000003")
+
+    def test_notification_recipient_helper_uses_recipient_phone(self):
+        from orders.notifications import get_notification_recipient_phone
+
+        order = self._checkout(deliver_to="other", recipient_name="Sara", recipient_phone="+919100000017")
+        self.assertEqual(get_notification_recipient_phone(order), "+919100000017")
+
+    def test_checkout_falls_back_to_address_contact_without_customer_profile(self):
+        """
+        Regression test: an account created via createsuperuser (or any
+        other path that skips accounts.views.signup_view) has no
+        CustomerProfile at all. Before this fix, customer_name/
+        customer_phone -- and therefore recipient_name/recipient_phone
+        for a "Myself" order -- came out blank in that case, which is
+        exactly what showed up as empty on the printed order slip.
+        """
+        from delivery.models import DeliveryAddress
+
+        no_profile_user = User.objects.create_user("superuser_no_profile", password="pw12345!")
+        address = DeliveryAddress.objects.create(
+            user=no_profile_user, full_name="Prathivan Appu", phone="+919751207439",
+            address_line_1="Trichy", city="Trichy", state="Tamil Nadu",
+            country="India", postal_code="620009", is_default=True,
+        )
+        self.client.force_login(no_profile_user)
+        CartItem.objects.create(user=no_profile_user, menu_item=self.item, quantity=2)
+        self.client.post(reverse("checkout"), {"address_id": address.id, "deliver_to": "self"})
+
+        order = Order.objects.get(user=no_profile_user)
+        self.assertEqual(order.customer_name, "Prathivan Appu")
+        self.assertEqual(order.customer_phone, "+919751207439")
+        self.assertEqual(order.recipient_name, "Prathivan Appu")
+        self.assertEqual(order.recipient_phone, "+919751207439")
+
+
+class OrderPrintViewTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user("staffmember", password="pw12345!", is_staff=True)
+        self.customer = User.objects.create_user("customer1", password="pw12345!")
+        self.order = Order.objects.create(
+            user=self.customer, status=Order.STATUS_PENDING, total_amount="150.00",
+            customer_name="Ahmed", customer_phone="+919100000003",
+            recipient_name="Ahmed", recipient_phone="+919100000003",
+        )
+
+    def test_staff_can_view_print_order(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("admin:print_order", args=[self.order.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, f"ORDER #{self.order.id}")
+        self.assertContains(resp, "Ahmed")
+
+    def test_print_greets_the_recipient_not_the_account_holder(self):
+        order = Order.objects.create(
+            user=self.customer, status=Order.STATUS_PENDING, total_amount="150.00",
+            customer_name="Priya", customer_phone="+919111122222",
+            delivery_type=Order.DELIVERY_TYPE_OTHER,
+            recipient_name="Mohammed", recipient_phone="+919999988888",
+        )
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("admin:print_order", args=[order.id]))
+        self.assertContains(resp, "Hi Mohammed")
+        self.assertContains(resp, "+919999988888")  # recipient's FULL number, needed for delivery
+
+    def test_print_masks_customer_phone_to_last_4_digits(self):
+        order = Order.objects.create(
+            user=self.customer, status=Order.STATUS_PENDING, total_amount="150.00",
+            customer_name="Priya", customer_phone="+919111122222",
+            delivery_type=Order.DELIVERY_TYPE_OTHER,
+            recipient_name="Mohammed", recipient_phone="+919999988888",
+        )
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("admin:print_order", args=[order.id]))
+        content = resp.content.decode()
+        # The account holder's full number must never appear on the
+        # slip -- only the last 4 digits, for customer privacy.
+        self.assertNotIn("+919111122222", content)
+        self.assertIn("2222", content)
+
+    def test_print_ends_with_thank_you_and_emoji(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("admin:print_order", args=[self.order.id]))
+        self.assertContains(resp, "THANK YOU 🙏")
+
+    def test_non_staff_cannot_view_print_order(self):
+        self.client.force_login(self.customer)
+        resp = self.client.get(reverse("admin:print_order", args=[self.order.id]))
+        self.assertNotEqual(resp.status_code, 200)
+
+    def test_anonymous_cannot_view_print_order(self):
+        resp = self.client.get(reverse("admin:print_order", args=[self.order.id]))
+        self.assertNotEqual(resp.status_code, 200)
+
+
+class AdminNotificationAdminTests(TestCase):
+    """
+    Regression test: the AdminNotification changelist page (used to
+    show the 📦 pre-order reminder bell's list) raised
+    "ValueError: Unknown format code 'd' for object of type SafeString"
+    because order_link() passed a raw int through format_html with a
+    `{:05d}` spec -- format_html escapes args into strings before
+    formatting, so a numeric format spec on a positional arg fails.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user("admin_notif_staff", password="pw12345!", is_staff=True, is_superuser=True)
+        self.order = Order.objects.create(user=self.staff, status=Order.STATUS_CONFIRMED, is_preorder=True)
+
+    def test_admin_notification_changelist_renders_without_error(self):
+        from orders.models import AdminNotification
+
+        AdminNotification.objects.create(
+            notification_type=AdminNotification.TYPE_PREORDER_REMINDER,
+            message="Pre-order due soon.",
+            order=self.order,
+        )
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin/orders/adminnotification/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, f"#ORD{self.order.id:05d}")
+
+    def test_add_admin_notification_button_is_removed(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin/orders/adminnotification/")
+        self.assertNotContains(resp, "Add admin notification")
+        add_resp = self.client.get("/admin/orders/adminnotification/add/")
+        self.assertEqual(add_resp.status_code, 403)
+
+    def test_mark_read_button_toggles_notification_in_one_click(self):
+        from orders.models import AdminNotification
+
+        notification = AdminNotification.objects.create(
+            notification_type=AdminNotification.TYPE_PREORDER_REMINDER,
+            message="Pre-order due soon.",
+            order=self.order,
+        )
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("admin:mark_notification_read", args=[notification.id]))
+        self.assertRedirects(resp, "/admin/orders/adminnotification/")
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_non_staff_cannot_mark_notification_read(self):
+        from orders.models import AdminNotification
+
+        non_staff = User.objects.create_user("regular_user", password="pw12345!")
+        notification = AdminNotification.objects.create(
+            notification_type=AdminNotification.TYPE_PREORDER_REMINDER,
+            message="Pre-order due soon.",
+            order=self.order,
+        )
+        self.client.force_login(non_staff)
+        resp = self.client.get(reverse("admin:mark_notification_read", args=[notification.id]))
+        self.assertNotEqual(resp.status_code, 200)
+        notification.refresh_from_db()
+        self.assertFalse(notification.is_read)

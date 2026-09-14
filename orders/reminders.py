@@ -1,6 +1,16 @@
 """
 Pre-order reminder logic.
 
+Every "due" pre-order gets TWO things, once, at most one hour before
+its fulfillment time:
+  1. An AdminNotification (the 📦 bell icon on the staff dashboard).
+  2. A customer-facing notification to whoever is actually receiving
+     the order (order.recipient_phone -- see orders/notifications.py),
+     which is NOT necessarily the account holder if it's a "Someone
+     Else" delivery. This currently only logs/prints (no real SMS/
+     WhatsApp provider connected yet), same as every other
+     notification in this project right now.
+
 Shared by two entry points that both just call `send_due_preorder_reminders()`:
 
   1. The in-process APScheduler job (orders/scheduler.py), which runs
@@ -16,6 +26,8 @@ same duplicate-prevention and "due" definition.
 import logging
 
 from django.utils import timezone
+
+from .notifications import notify_order_recipient
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +77,21 @@ def send_due_preorder_reminders():
             message=message,
             order=order,
         )
+
+        # Also notify whoever is actually receiving the order -- the
+        # recipient (see orders/notifications.py), NOT necessarily the
+        # account holder, since a pre-order can be "Someone Else"
+        # delivery just like any other order. Uses the same console
+        # stub as every other notification right now; wiring a real
+        # SMS/WhatsApp provider here later is a one-file change in
+        # orders/notifications.py, nothing here needs to change.
+        ready_time = timezone.localtime(order.preorder_datetime).strftime("%I:%M %p on %d %b")
+        customer_message = (
+            f"Reminder: your Butterfly Cloud Kitchen pre-order #ORD{order.id:05d} "
+            f"will be ready by {ready_time}."
+        )
+        notify_order_recipient(order, customer_message)
+
         logger.info("Pre-order reminder created for order #%s", order.id)
         created += 1
 

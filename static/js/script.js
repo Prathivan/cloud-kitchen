@@ -105,6 +105,7 @@ function handleCartConflict(form, formData, data, onResolved) {
   showSiteModal(
     data.error + " Clear your current cart and continue with this item?",
     {
+      okLabel: "Clear Cart",
       onOk: function () {
         formData.set("force", "1");
         postCartAction(form.getAttribute("action"), formData)
@@ -286,7 +287,16 @@ function recalcCartSummary() {
   if (subtotalEl) subtotalEl.textContent = "\u20b9" + formatMoney(subtotal);
   if (deliveryEl) deliveryEl.textContent = "\u20b9" + formatMoney(deliveryFee);
   if (totalEl) totalEl.textContent = "\u20b9" + formatMoney(total);
-  if (checkoutBtn) checkoutBtn.disabled = rows.length === 0;
+  if (checkoutBtn) {
+    var cartIsEmpty = rows.length === 0;
+    // checkoutBtn is a <button disabled> only while the cart is empty
+    // server-side-rendered; once it has items it's an <a> (see
+    // templates/cart.html), where .disabled does nothing on its own --
+    // toggle a class + pointer-events too so "remove last item" via
+    // AJAX still blocks navigating to checkout without a full reload.
+    checkoutBtn.disabled = cartIsEmpty;
+    checkoutBtn.classList.toggle("is-disabled-link", cartIsEmpty);
+  }
 
   if (rows.length === 0 && !tbody.querySelector(".empty-cart")) {
     var cartSection = document.querySelector(".cart-section");
@@ -498,6 +508,7 @@ function showSiteModal(message, options) {
 
   messageEl.textContent = message;
   cancelBtn.style.display = options.okOnly ? "none" : "";
+  okBtn.textContent = options.okLabel || "OK";
   overlay.hidden = false;
 
   function cleanup() {
@@ -551,4 +562,194 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") closeDropdown();
   });
+});
+
+// ============================================================
+// Signup: mobile number OTP verification (SMS or WhatsApp), required
+// before the rest of the signup form is shown. Talks to
+// accounts.views.send_otp_view / verify_otp_view.
+// ============================================================
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("signup-form");
+  if (!form) return;
+
+  var sendUrl = form.getAttribute("data-send-otp-url");
+  var verifyUrl = form.getAttribute("data-verify-otp-url");
+  var csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+  var stepRequest = document.getElementById("otp-step-request");
+  var stepVerify = document.getElementById("otp-step-verify");
+  var stepSignup = document.getElementById("otp-step-signup");
+
+  var mobileInput = document.getElementById("otp-mobile-input");
+  var sendBtn = document.getElementById("otp-send-btn");
+  var requestError = document.getElementById("otp-request-error");
+
+  var codeInput = document.getElementById("otp-code-input");
+  var verifyBtn = document.getElementById("otp-verify-btn");
+  var verifyError = document.getElementById("otp-verify-error");
+  var sentNote = document.getElementById("otp-sent-note");
+  var debugCodeNote = document.getElementById("otp-debug-code");
+  var resendLink = document.getElementById("otp-resend-link");
+  var changeNumberLink = document.getElementById("otp-change-number-link");
+
+  var hiddenMobileField = document.getElementById("id_mobile_number");
+  var verifiedNumberLabel = document.getElementById("otp-verified-number");
+
+  var resendCooldownTimer = null;
+
+  function postForm(url, params) {
+    var body = new URLSearchParams(params);
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRFToken": csrfToken,
+      },
+      body: body.toString(),
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        return { status: response.status, data: data };
+      });
+    });
+  }
+
+  function selectedChannel() {
+    var checked = form.querySelector('input[name="otp_channel"]:checked');
+    return checked ? checked.value : "sms";
+  }
+
+  function startResendCooldown(seconds) {
+    clearInterval(resendCooldownTimer);
+    var remaining = seconds;
+    function render() {
+      if (remaining <= 0) {
+        resendLink.textContent = "Resend code";
+        resendLink.classList.remove("disabled-link");
+        clearInterval(resendCooldownTimer);
+        return;
+      }
+      resendLink.textContent = "Resend code (" + remaining + "s)";
+      resendLink.classList.add("disabled-link");
+      remaining -= 1;
+    }
+    render();
+    resendCooldownTimer = setInterval(render, 1000);
+  }
+
+  function requestOtp() {
+    var mobileNumber = mobileInput.value.trim();
+    requestError.textContent = "";
+    if (!mobileNumber) {
+      requestError.textContent = "Enter your mobile number.";
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending…";
+
+    postForm(sendUrl, { mobile_number: mobileNumber, channel: selectedChannel() })
+      .then(function (result) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send Verification Code";
+        if (!result.data.ok) {
+          requestError.textContent = result.data.error || "Could not send code. Please try again.";
+          return;
+        }
+        hiddenMobileField.value = mobileNumber;
+        sentNote.textContent = result.data.message;
+        if (result.data.debug_code) {
+          // TEMPORARY dev convenience -- see accounts/views.py send_otp_view.
+          // Only ever present while the Django site runs with DEBUG=True.
+          debugCodeNote.textContent = "DEV MODE — your code is: " + result.data.debug_code;
+          debugCodeNote.style.display = "";
+        } else {
+          debugCodeNote.style.display = "none";
+          debugCodeNote.textContent = "";
+        }
+        codeInput.value = "";
+        verifyError.textContent = "";
+        stepRequest.style.display = "none";
+        stepVerify.style.display = "";
+        codeInput.focus();
+        startResendCooldown(result.data.resend_cooldown || 30);
+      })
+      .catch(function () {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send Verification Code";
+        requestError.textContent = "Something went wrong. Please try again.";
+      });
+  }
+
+  function verifyOtp() {
+    var mobileNumber = hiddenMobileField.value;
+    var code = codeInput.value.trim();
+    verifyError.textContent = "";
+    if (!code) {
+      verifyError.textContent = "Enter the code you received.";
+      return;
+    }
+
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = "Verifying…";
+
+    postForm(verifyUrl, { mobile_number: mobileNumber, code: code })
+      .then(function (result) {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify Code";
+        if (!result.data.ok) {
+          verifyError.textContent = result.data.error || "Verification failed. Please try again.";
+          return;
+        }
+        verifiedNumberLabel.textContent = mobileNumber;
+        stepVerify.style.display = "none";
+        stepSignup.style.display = "";
+      })
+      .catch(function () {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify Code";
+        verifyError.textContent = "Something went wrong. Please try again.";
+      });
+  }
+
+  sendBtn.addEventListener("click", requestOtp);
+  verifyBtn.addEventListener("click", verifyOtp);
+  codeInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      verifyOtp();
+    }
+  });
+  mobileInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      requestOtp();
+    }
+  });
+
+  resendLink.addEventListener("click", function (event) {
+    event.preventDefault();
+    if (resendLink.classList.contains("disabled-link")) return;
+    requestOtp();
+  });
+  changeNumberLink.addEventListener("click", function (event) {
+    event.preventDefault();
+    clearInterval(resendCooldownTimer);
+    stepVerify.style.display = "none";
+    stepRequest.style.display = "";
+    mobileInput.focus();
+  });
+
+  // If the server re-rendered this page after a failed final signup
+  // POST (e.g. weak password) but the mobile number is STILL verified
+  // in this session, skip straight back to step 3 instead of making
+  // the customer request and re-enter a fresh code.
+  var alreadyVerifiedMobile = form.getAttribute("data-verified-mobile");
+  if (alreadyVerifiedMobile) {
+    hiddenMobileField.value = alreadyVerifiedMobile;
+    verifiedNumberLabel.textContent = alreadyVerifiedMobile;
+    stepRequest.style.display = "none";
+    stepSignup.style.display = "";
+  }
 });

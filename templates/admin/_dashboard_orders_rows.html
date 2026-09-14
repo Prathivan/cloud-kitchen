@@ -12,6 +12,7 @@
     <td data-label="Time">{{ order.created_at|date:"h:i A" }}</td>
     <td data-label="Action" class="bck-actions-cell">
         <a href="{% url 'admin:orders_order_change' order.id %}" class="bck-icon-btn" title="View">👁️</a>
+        <a href="{% url 'admin:print_order' order.id %}" class="bck-icon-btn" title="Print Order" target="_blank" rel="noopener">🖨</a>
         {% if order.next_status %}
         <form method="post" action="{% url 'admin:advance_order' order.id %}" class="bck-inline-form">
             {% csrf_token %}

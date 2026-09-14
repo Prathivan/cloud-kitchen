@@ -149,7 +149,7 @@ ul {
     width: 48px;
     height: 48px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 12px;
     flex-shrink: 0;
 }
 
@@ -905,6 +905,16 @@ ul {
     margin-bottom: 14px;
 }
 
+.order-delivery-note {
+    font-size: 13px;
+    color: #1878ad;
+    background: #eaf5fb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+
 /* Horizontal progress tracker: a line of dots connected by a bar that
    fills in as reached; the last-reached dot is the current stage. */
 .order-tracker {
@@ -981,8 +991,15 @@ ul {
 }
 
 @media (max-width: 600px) {
-    .order-tracker { justify-content: flex-start; }
-    .order-tracker-step { min-width: 76px; }
+    /* Previously forced a min-width per step (76px × 4 steps ≈ 304px),
+       which didn't fit on narrow phones and made the tracker scroll
+       horizontally instead of showing all 4 stages at once. Letting
+       steps shrink evenly (flex-basis 0, no min-width) means every
+       stage is always visible, fitted to the actual screen width. */
+    .order-tracker { justify-content: space-between; overflow-x: visible; }
+    .order-tracker-step { min-width: 0; flex: 1 1 0; padding-top: 14px; }
+    .order-tracker-label { font-size: 10px; }
+    .order-tracker-time { font-size: 9px; }
     .order-card { padding: 20px 18px; }
 
     /* .order-status-badge has flex:0 0 auto (never shrinks) and the
@@ -2063,12 +2080,31 @@ offer-slider-section {
     place-items: center;
     border: 1px solid var(--border);
     font-size: 15px;
+    color: var(--dark);
     transition: 0.2s ease;
 }
 
 .social-row a:hover {
     border-color: var(--primary);
     color: var(--primary);
+}
+
+.social-icon-instagram:hover {
+    background: radial-gradient(circle at 30% 110%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+    border-color: transparent;
+    color: #fff;
+}
+
+.social-icon-facebook:hover {
+    background: #1877f2;
+    border-color: transparent;
+    color: #fff;
+}
+
+.social-icon-email:hover {
+    background: var(--primary);
+    border-color: transparent;
+    color: #fff;
 }
 
 .contact-form {
@@ -2101,7 +2137,7 @@ offer-slider-section {
     color: var(--danger);
 }
 
-.form-group input,
+.form-group input:not([type="checkbox"]):not([type="radio"]),
 .form-group select,
 .form-group textarea {
     width: 100%;
@@ -2190,6 +2226,35 @@ offer-slider-section {
     height: 320px;
     border: 0;
     display: block;
+}
+
+.map-open-link {
+    display: block;
+    text-align: center;
+    padding: 14px;
+    background: var(--light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    border-top: 1px solid var(--border);
+}
+
+.map-open-link:hover {
+    background: #eaf5fb;
+}
+
+.social-coming-soon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--light);
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--border);
+    font-size: 15px;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* =========================
@@ -2367,6 +2432,59 @@ offer-slider-section {
     margin-top: 6px;
     color: var(--danger);
     font-size: 12px;
+}
+
+/* Signup: mobile OTP verification steps */
+.otp-channel-choice {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.otp-channel-choice label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+#otp-step-request .form-submit,
+#otp-step-verify .form-submit {
+    margin-top: 14px;
+}
+
+.otp-sent-note {
+    font-size: 13px;
+    color: var(--text);
+    margin: 0 0 10px;
+}
+
+.otp-debug-code {
+    font-size: 13px;
+    font-weight: 700;
+    color: #8a5a00;
+    background: #fff4dd;
+    border: 1px dashed #e0a600;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 0 0 10px;
+}
+
+.otp-verified-note {
+    background: var(--light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+}
+
+.disabled-link {
+    pointer-events: none;
+    opacity: 0.5;
 }
 
 .form-success-banner {
@@ -2725,6 +2843,16 @@ offer-slider-section {
     cursor: pointer;
     margin-top: 6px;
     transition: 0.2s ease;
+    display: block;
+    text-align: center;
+    text-decoration: none;
+}
+
+.checkout-btn:disabled,
+.checkout-btn.is-disabled-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .checkout-btn:hover {
@@ -2836,38 +2964,32 @@ offer-slider-section {
 }
 
 .footer-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 48px;
+    /* Reuses .logo's exact structure/positioning (see "Header Logo"
+       above) instead of a separate, independently-maintained set of
+       rules -- that duplication is what kept drifting out of sync and
+       rendering stacked instead of side-by-side. Only the text color
+       needs overriding here, since the footer sits on a dark
+       background where .logo's default var(--dark) text would be
+       invisible. */
+    color: var(--white);
+    min-width: 0;
     margin-bottom: 9px;
 }
 
-.footer-logo img {
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-    border-radius: 8px;
-    flex-shrink: 0;
-}
-
-.footer-logo-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1;
-}
-
-.footer-logo-text strong {
+.footer-logo:hover {
     color: var(--white);
-    font-size: 21px;
-    font-weight: 800;
 }
 
-.footer-logo-text small {
-    color: var(--primary);
-    font-size: 10px;
-    font-weight: 800;
-    margin-top: 5px;
+/* CRITICAL: .footer a (below) sets display:block for the Quick Links
+   list and has HIGHER specificity than a single class selector like
+   .footer-logo or .logo (one class + one tag beats one class alone),
+   so it was silently winning and turning this link's layout from
+   .logo's flex row into a block, which let "Butterfly" wrap onto its
+   own line below the image instead of sitting beside it. This needs
+   two classes (.footer .footer-logo) to actually out-specify it. */
+.footer .footer-logo {
+    display: flex;
+    align-items: center;
 }
 
 .footer h3 {
@@ -3197,10 +3319,6 @@ offer-slider-section {
         justify-content: center;
     }
 
-    .footer-logo-text {
-        align-items: center;
-    }
-
     .footer p {
         max-width: none;
         margin: 0 auto;
@@ -3372,17 +3490,9 @@ offer-slider-section {
         padding-bottom: 24px;
     }
 
-    .footer-logo img {
+    .footer-logo .logo-icon {
         width: 44px;
         height: 44px;
-    }
-
-    .footer-logo-text strong {
-        font-size: 20px;
-    }
-
-    .footer-logo-text small {
-        font-size: 9px;
     }
 
     .footer h4 {
@@ -3668,7 +3778,13 @@ offer-slider-section {
     letter-spacing: .3px;
 }
 
-.home-eyebrow-icon { font-size: 14px; }
+.home-eyebrow-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
 
 .home-hero h1 {
     margin: 0 0 20px;
@@ -4044,8 +4160,36 @@ offer-slider-section {
     .home-hero-description { font-size: 14px; line-height: 1.6; }
     .home-hero-actions .primary-btn,
     .home-hero-actions .secondary-btn { width: 100%; text-align: center; }
-    .home-trust-row { grid-template-columns: 1fr; gap: 9px; margin-top: 25px; }
-    .home-trust-item { padding: 7px 0; }
+
+    /* Modernized mobile trust row: each item becomes its own small
+       card (background, radius, shadow) instead of a bare icon+text
+       row with no visual container, which read as unfinished/cramped
+       on narrow screens. */
+    .home-trust-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 22px;
+    }
+    .home-trust-item {
+        padding: 12px 14px;
+        background: var(--white);
+        border: 1px solid rgba(43, 158, 216, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 6px 16px rgba(36, 50, 61, 0.06);
+        justify-content: center;
+        text-align: center;
+    }
+    .home-trust-item div { text-align: left; }
+    .home-trust-icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        font-size: 18px;
+        background: linear-gradient(135deg, #eaf7fd, #dff1fb);
+    }
+    .home-trust-item strong { font-size: 13px; }
+    .home-trust-item small { font-size: 11px; }
+
     .home-feature-card { border-radius: 20px; }
     .home-feature-topline { padding: 13px 14px 10px; }
     .home-chef-image-wrap { height: 230px; }
@@ -4240,7 +4384,12 @@ offer-slider-section {
     width: 100%;
     max-width: 820px;
     margin: 0 auto;
-    overflow: visible;
+    /* Was `overflow: visible`, which let the next/previous review card
+       peek in from the side and forced a horizontal scrollbar --
+       clipped now, matching how .home-popular-slider already behaves
+       (see .slider { overflow: hidden } base rule + line 3975 above),
+       so only the current review card is ever visible. */
+    overflow: hidden;
     padding: 4px 0 2px;
 }
 
@@ -4674,4 +4823,353 @@ offer-slider-section {
 
     .home-popular-slider .slider-nav.prev { left: 2px; }
     .home-popular-slider .slider-nav.next { right: 2px; }
+}
+
+/* ============================================================
+   Delivery addresses (list, form) + checkout page
+   ============================================================ */
+
+.address-add-btn {
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+.address-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+}
+
+.address-card {
+    background: var(--white);
+    border: 1px solid #e6e9ec;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+.address-card.is-default {
+    border-color: var(--primary);
+}
+
+.address-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.address-label-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #eef2f4;
+    color: #52616b;
+}
+
+.address-label-home { background: #e3f2fd; color: #1878ad; }
+.address-label-work { background: #fdf1dc; color: #b3711a; }
+.address-label-other { background: #f0eafd; color: #7b4fd9; }
+
+.address-default-badge {
+    background: var(--primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.address-name {
+    font-weight: 700;
+    margin: 6px 0 4px;
+}
+
+.address-lines {
+    color: #52616b;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.address-instructions {
+    font-size: 12px;
+    color: #8a5a00;
+    background: #fff8e8;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.address-map-link {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.address-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.address-inline-form {
+    display: inline;
+}
+
+.address-action-btn {
+    border: 1px solid #d8dee2;
+    background: #fff;
+    color: #333;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.address-action-danger {
+    color: #e2574c;
+    border-color: #f3c9c5;
+}
+
+/* Address form */
+.address-form-layout {
+    max-width: 640px;
+}
+
+.address-form-section {
+    background: var(--white);
+    border: 1px solid #e6e9ec;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.address-form-section h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.address-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.address-label-choice {
+    display: flex;
+    gap: 18px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.address-label-choice label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.address-default-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.address-default-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    accent-color: var(--primary);
+}
+
+.map-search-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d8dee2;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.delivery-map {
+    width: 100%;
+    height: 320px;
+    border-radius: 12px;
+    border: 1px solid #d8dee2;
+}
+
+.map-hint {
+    font-size: 12px;
+    color: #52616b;
+    margin-top: 8px;
+}
+
+.map-unavailable-note {
+    font-size: 13px;
+    color: #8a5a00;
+    background: #fff8e8;
+    border: 1px dashed #e0a600;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.selected-location-note {
+    font-size: 13px;
+    background: var(--light);
+    color: var(--primary);
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+/* Checkout page */
+.checkout-layout {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .checkout-layout { grid-template-columns: 1fr; }
+}
+
+.checkout-block {
+    background: var(--white);
+    border: 1px solid #e6e9ec;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.checkout-block h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.address-radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.address-radio-card {
+    border: 1px solid #e6e9ec;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    display: block;
+}
+
+.address-radio-card.is-selected {
+    border-color: var(--primary);
+    background: var(--light);
+}
+
+.address-radio-input {
+    margin-right: 8px;
+}
+
+.address-radio-label-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #52616b;
+    margin-bottom: 4px;
+}
+
+.secondary-link-btn {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.deliver-to-toggle {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.deliver-to-option {
+    flex: 1;
+    text-align: center;
+    border: 1px solid #d8dee2;
+    border-radius: 10px;
+    padding: 12px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.deliver-to-option.is-selected {
+    border-color: var(--primary);
+    background: var(--light);
+    color: var(--primary);
+}
+
+.deliver-to-option input {
+    margin-right: 6px;
+}
+
+.checkout-summary {
+    background: var(--white);
+    border: 1px solid #e6e9ec;
+    border-radius: 14px;
+    padding: 18px;
+    position: sticky;
+    top: 20px;
+}
+
+.checkout-summary h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.checkout-summary-items {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    font-size: 13px;
+}
+
+.checkout-summary-items li {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    color: #52616b;
+}
+
+.checkout-summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+    color: #52616b;
+}
+
+.checkout-summary-total {
+    border-top: 1px solid #e6e9ec;
+    margin-top: 8px;
+    padding-top: 10px;
+    font-weight: 800;
+    font-size: 15px;
+    color: #222;
+}
+
+.muted-text {
+    color: #7a8791;
 }

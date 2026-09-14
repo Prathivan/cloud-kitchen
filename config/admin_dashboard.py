@@ -152,7 +152,7 @@ def _status_breakdown_data():
     return rows, "conic-gradient(" + ", ".join(gradient_parts) + ")"
 
 
-def _todays_orders_queryset(limit=10):
+def _todays_orders_queryset(limit=7):
     from orders.models import Order
 
     today = timezone.localdate()
@@ -297,6 +297,41 @@ def _advance_order_view(request, order_id):
     return redirect(next_url)
 
 
+def _mark_notification_read_view(request, notification_id):
+    """
+    One-click "Mark Read" for a single AdminNotification (see
+    orders/admin.py's read_status_button), instead of requiring
+    staff to select its checkbox, pick the bulk action, and click Run
+    just to dismiss one row. GET is intentionally accepted (not just
+    POST) since this is a plain link, not a form -- same pattern as
+    the print/advance-order links elsewhere in this file.
+    """
+    from orders.models import AdminNotification
+
+    notification = get_object_or_404(AdminNotification, pk=notification_id)
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+        messages.success(request, "Notification marked as read.")
+    next_url = request.GET.get("next") or reverse("admin:orders_adminnotification_changelist")
+    return redirect(next_url)
+
+
+def _print_order_view(request, order_id):
+    """
+    Printer-friendly order slip for kitchen/delivery staff -- deliberately
+    renders order_print.html directly (NOT via admin.site.each_context,
+    and the template doesn't extend base.html or any admin template) so
+    the output has zero site nav / admin sidebar, just the order itself.
+    Reachable only by staff, same as every other admin_view()-wrapped
+    URL registered below.
+    """
+    from orders.models import Order
+
+    order = get_object_or_404(Order.objects.prefetch_related("items"), pk=order_id)
+    return TemplateResponse(request, "order_print.html", {"order": order})
+
+
 def _global_search_view(request):
     from accounts.models import CustomerProfile
     from menu.models import MenuItem
@@ -399,6 +434,12 @@ def _get_urls_with_extras(original_get_urls):
             path("reports/", self.admin_view(_reports_view), name="reports"),
             path("dashboard-stats.json/", self.admin_view(_dashboard_stats_json_view), name="dashboard_stats"),
             path("orders/<int:order_id>/advance/", self.admin_view(_advance_order_view), name="advance_order"),
+            path("orders/<int:order_id>/print/", self.admin_view(_print_order_view), name="print_order"),
+            path(
+                "orders/adminnotification/<int:notification_id>/mark-read/",
+                self.admin_view(_mark_notification_read_view),
+                name="mark_notification_read",
+            ),
             path("search/", self.admin_view(_global_search_view), name="global_search"),
         ]
         return extra + original_get_urls()
