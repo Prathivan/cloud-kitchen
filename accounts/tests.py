@@ -973,6 +973,41 @@ class EnsureSuperuserCommandTests(TestCase):
 
         self.assertFalse(User.objects.filter(is_superuser=True).exists())
 
+    def test_promotes_existing_non_admin_account_with_same_username(self):
+        """
+        Regression test: this is exactly what happened in practice --
+        a customer had already signed up through the normal site flow
+        using the same username later chosen for
+        DJANGO_SUPERUSER_USERNAME. Previously this command saw the
+        username already existed and silently skipped, leaving a
+        same-named account that couldn't log in with the "new"
+        password, with no indication why. It must now promote that
+        account instead.
+        """
+        from django.core.management import call_command
+
+        customer = User.objects.create_user(
+            username="thebutterfly", email="customer@example.com", password="WhateverTheySignedUpWith1"
+        )
+        self.assertFalse(customer.is_staff)
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "thebutterfly",
+                "DJANGO_SUPERUSER_EMAIL": "admin@example.com",
+                "DJANGO_SUPERUSER_PASSWORD": "Priya_s_kitchen",
+            },
+        ):
+            call_command("ensure_superuser")
+
+        customer.refresh_from_db()
+        self.assertTrue(customer.is_staff)
+        self.assertTrue(customer.is_superuser)
+        self.assertTrue(customer.check_password("Priya_s_kitchen"))
+        # Still the same account/id -- not a duplicate.
+        self.assertEqual(User.objects.filter(username="thebutterfly").count(), 1)
+
     def test_does_not_duplicate_or_error_when_superuser_already_exists(self):
         from django.core.management import call_command
 
