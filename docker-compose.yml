@@ -1,0 +1,41 @@
+# For local testing of the exact container that gets deployed --
+# NOT what Aiven/Render run themselves in production (they build the
+# Dockerfile directly and inject their own DATABASE_URL/SECRET_KEY).
+# Useful to sanity-check the Docker image works end-to-end, including
+# against a real Postgres, before pushing to any platform.
+#
+# Run with: docker compose up --build
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=local-docker-testing-only-not-for-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - DATABASE_URL=postgres://butterfly:butterfly@db:5432/butterfly_cloud_kitchen
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=butterfly
+      - POSTGRES_PASSWORD=butterfly
+      - POSTGRES_DB=butterfly_cloud_kitchen
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U butterfly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  media_data:
